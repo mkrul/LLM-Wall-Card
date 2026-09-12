@@ -1,0 +1,84 @@
+{
+  "jobs": [
+    {
+      "id": "brainstorming",
+      "job": "Brainstorming",
+      "match": "anthropic/claude-opus",
+      "label": "Claude Opus 5",
+      "why": "New ideas and messy exploration"
+    },
+    {
+      "id": "hardest-problems",
+      "job": "Hardest problems",
+      "match": "anthropic/claude-fable",
+      "label": "Claude Fable 5.1",
+      "why": "When it has to be the best answer"
+    },
+    {
+      "id": "architecture",
+      "job": "Architecture",
+      "match": "anthropic/claude-opus",
+      "label": "Claude Opus 5",
+      "why": "Big design and multi-file refactors"
+    },
+    {
+      "id": "everyday-coding",
+      "job": "Everyday coding",
+      "match": "anthropic/claude-sonnet",
+      "label": "Claude Sonnet 5",
+      "why": "Daily coding, fast enough"
+    },
+    {
+      "id": "agents-and-tools",
+      "job": "Agents and tools",
+      "match": "openai/gpt-5.6-sol",
+      "exclude": ["-pro"],
+      "label": "GPT-5.6 Sol",
+      "why": "Tools, terminal, long agent runs"
+    },
+    {
+      "id": "long-documents",
+      "job": "Long documents",
+      "match": "google/gemini-3",
+      "require": "pro",
+      "exclude": ["image", "flash", "customtools"],
+      "label": "Gemini 3.1 Pro",
+      "why": "Huge files, PDFs, big context"
+    },
+    {
+      "id": "fast-cheap-work",
+      "job": "Fast cheap work",
+      "match": "google/gemini-3",
+      "require": "flash",
+      "exclude": ["image", "lite"],
+      "label": "Gemini 3.8 Flash",
+      "why": "Volume work and multimodal drafts"
+    },
+    {
+      "id": "images",
+      "job": "Images",
+      "match": "google/gemini-3",
+      "require": "image",
+      "exclude": ["lite", "preview"],
+      "label": "Gemini Flash Image",
+      "why": "Generate and edit images"
+    },
+    {
+      "id": "cheap-long-runs",
+      "job": "Cheap long runs",
+      "match": "x-ai/grok-4",
+      "exclude": ["multi-agent"],
+      "label": "Grok 4.6",
+      "why": "Long runs without the high bill"
+    },
+    {
+      "id": "lowest-cost",
+      "job": "Lowest cost",
+      "match": "deepseek/deepseek-v4",
+      "require": "pro",
+      "exclude": ["flash", "vision"],
+      "label": "DeepSeek V4 Pro",
+      "why": "Capable work at the lowest price"
+    }
+  ]
+}

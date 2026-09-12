@@ -1,0 +1,117 @@
+html,
+body {
+  margin: 0;
+  width: 400px;
+  height: 700px;
+  overflow: hidden;
+  background: #0d0d0d;
+  color: #f2f0ea;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+.card {
+  box-sizing: border-box;
+  width: 400px;
+  height: 700px;
+  display: flex;
+  flex-direction: column;
+  padding: 14px 18px 12px;
+}
+
+header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+h1 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #c4a574;
+}
+
+#updated-at {
+  font-size: 11px;
+  color: #8a8680;
+}
+
+#jobs {
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+}
+
+#jobs li {
+  padding: 5px 0;
+  border-bottom: 1px solid #222;
+}
+
+#jobs li:last-child {
+  border-bottom: 0;
+}
+
+.job {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.15;
+  color: #f2f0ea;
+}
+
+.model {
+  margin-top: 1px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: #c4a574;
+}
+
+.why {
+  margin-top: 1px;
+  font-size: 11px;
+  line-height: 1.25;
+  color: #9c9890;
+}
+
+li.stale {
+  opacity: 0.45;
+}
+
+.stale-mark {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid #2a2a2a;
+}
+
+button {
+  background: transparent;
+  border: 1px solid #c4a574;
+  color: #c4a574;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
+#status {
+  margin: 0;
+  font-size: 11px;
+  color: #8a8680;
+}
