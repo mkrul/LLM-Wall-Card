@@ -30,15 +30,30 @@ def load_families():
     jobs = payload.get("jobs") if isinstance(payload, dict) else None
     if not isinstance(jobs, list) or not jobs:
         raise SystemExit("families: jobs must be a non-empty list")
-    required = {"id", "job", "match", "label", "why"}
+    required = {"id", "job", "match", "label", "why", "tasks"}
+    alt_required = {"match", "label", "why", "tasks"}
     for index, job in enumerate(jobs):
         if not isinstance(job, dict) or not required.issubset(job):
             raise SystemExit(f"families: job {index} missing keys")
-        if "exclude" in job and not isinstance(job["exclude"], list):
-            raise SystemExit(f"families: job {index} exclude must be a list")
-        if "require" in job and not isinstance(job["require"], str):
-            raise SystemExit(f"families: job {index} require must be a string")
+        validate_match_fields(job, f"job {index}")
+        also = job.get("also") or []
+        if not isinstance(also, list):
+            raise SystemExit(f"families: job {index} also must be a list")
+        for alt_index, alt in enumerate(also):
+            if not isinstance(alt, dict) or not alt_required.issubset(alt):
+                raise SystemExit(f"families: job {index} also {alt_index} missing keys")
+            validate_match_fields(alt, f"job {index} also {alt_index}")
     return jobs
+
+
+def validate_match_fields(item, label):
+    if "exclude" in item and not isinstance(item["exclude"], list):
+        raise SystemExit(f"families: {label} exclude must be a list")
+    if "require" in item and not isinstance(item["require"], str):
+        raise SystemExit(f"families: {label} require must be a string")
+    tasks = item.get("tasks")
+    if not isinstance(tasks, list) or not tasks or not all(isinstance(task, str) and task.strip() for task in tasks):
+        raise SystemExit(f"families: {label} tasks must be a non-empty list of strings")
 
 
 def fetch_catalog():
@@ -97,32 +112,48 @@ def display_name(row, fallback):
     return name or fallback
 
 
+def resolve_pick(spec, catalog):
+    row = pick_latest(catalog, spec)
+    if row is None:
+        return {
+            "model": spec["label"],
+            "modelId": spec["match"],
+            "why": spec["why"],
+            "tasks": spec["tasks"],
+            "stale": True,
+        }, spec["match"]
+    return {
+        "model": display_name(row, spec["label"]),
+        "modelId": row["id"],
+        "why": spec["why"],
+        "tasks": spec["tasks"],
+        "stale": False,
+    }, None
+
+
 def resolve_card(jobs, catalog):
     resolved = []
     stale_ids = []
     for job in jobs:
-        row = pick_latest(catalog, job)
-        if row is None:
-            stale_ids.append(job["match"])
-            resolved.append(
-                {
-                    "id": job["id"],
-                    "job": job["job"],
-                    "model": job["label"],
-                    "modelId": job["match"],
-                    "why": job["why"],
-                    "stale": True,
-                }
-            )
-            continue
+        primary, stale_id = resolve_pick(job, catalog)
+        if stale_id:
+            stale_ids.append(stale_id)
+        also = []
+        for alt in job.get("also") or []:
+            item, alt_stale = resolve_pick(alt, catalog)
+            if alt_stale:
+                stale_ids.append(alt_stale)
+            also.append(item)
         resolved.append(
             {
                 "id": job["id"],
                 "job": job["job"],
-                "model": display_name(row, job["label"]),
-                "modelId": row["id"],
-                "why": job["why"],
-                "stale": False,
+                "model": primary["model"],
+                "modelId": primary["modelId"],
+                "why": primary["why"],
+                "tasks": primary["tasks"],
+                "stale": primary["stale"],
+                "also": also,
             }
         )
     return {

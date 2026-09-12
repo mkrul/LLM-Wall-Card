@@ -1,18 +1,18 @@
-# LLM Wall
+# LLM Cheat Sheet
 
 Desktop cheat sheet for which AI model to use for which job.
 
-A 400×700 window you park on a second monitor. Each row is a job in bold, the current best model under it, and one plain line about when to use it.
+A 400×700 window you park on a second monitor. Each row is a job in bold, the current best model under it, and one plain line about when to use it. Hover a row and the tooltip slides out to the right with the other strong models for that job.
 
 ## Requirements
 
 - macOS
 - Python 3
-- Chrome, Chromium, or Brave (Chrome first)
+- Xcode Command Line Tools (`swiftc`) to rebuild the app
 
 ## Start it
 
-Double-click **LLM Wall** on your Desktop.
+Double-click **LLM Cheat Sheet** on your Desktop.
 
 If that shortcut is missing:
 
@@ -20,7 +20,7 @@ If that shortcut is missing:
 ./scripts/make-desktop-app.sh
 ```
 
-That builds `LLM Wall.app` in this folder and puts a shortcut on your Desktop.
+That builds `LLM Cheat Sheet.app` in this folder and puts a shortcut on your Desktop.
 
 You can also run:
 
@@ -28,7 +28,7 @@ You can also run:
 ./launch.sh
 ```
 
-Both refresh the model names, then open the card.
+Opening the card also refreshes the model names. A weekly job does the same every Sunday at 7:00 so you do not have to.
 
 ## What a refresh does
 
@@ -38,13 +38,7 @@ It updates the model name. It does not rewrite the job titles or the “why” l
 
 If OpenRouter is down, the last good card still opens.
 
-Manual refresh:
-
-```bash
-python3 scripts/refresh.py
-```
-
-Then hit **Reload** in the window, or launch again.
+The Sunday job is installed by `scripts/install-weekly-refresh.sh`. `make-desktop-app.sh` runs that for you.
 
 ## Change the jobs
 
@@ -56,7 +50,11 @@ Edit `data/families.json`. Each job looks like this:
   "job": "Brainstorming",
   "match": "anthropic/claude-opus",
   "label": "Claude Opus 5",
-  "why": "New ideas and messy exploration"
+  "why": "Names, pitches, and half-formed product ideas",
+  "tasks": [
+    "Product names and taglines",
+    "Pitch angles and positioning"
+  ]
 }
 ```
 
@@ -68,19 +66,25 @@ Edit `data/families.json`. Each job looks like this:
 | `require` | Optional substring the id must contain. |
 | `exclude` | Optional substrings to skip (`:batch` is always skipped). |
 | `label` | Fallback name if no catalog match is found. |
+| `also` | Optional extra models for the hover list. Same fields as above. |
+| `tasks` | Concrete jobs that model is good at. Shown in the hover list. |
 
-Then run `python3 scripts/refresh.py` and reload the card.
+Then run `python3 scripts/refresh.py`, or just open the card again.
 
 
 ## Layout
 
 ```
-launch.sh                 opens the window
+launch.sh                 opens the app
+macos/App.swift           native window
+LLM Cheat Sheet.app       built app
+assets/icon.icns          Dock icon
 index.html                the card
 css/card.css
 js/app.js
 data/families.json        jobs you edit
 data/card-data.js         last resolved card (written by refresh)
 scripts/refresh.py
+scripts/install-weekly-refresh.sh
 scripts/make-desktop-app.sh
 ```
