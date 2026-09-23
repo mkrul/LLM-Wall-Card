@@ -9,8 +9,14 @@
   <body>
     <div class="card">
       <header>
-        <h1>LLM Cheat Sheet</h1>
-        <time id="updated-at"></time>
+        <div class="title-row">
+          <h1>LLM Cheat Sheet</h1>
+          <time id="updated-at"></time>
+        </div>
+        <div class="view-toggle" role="group" aria-label="List order">
+          <button type="button" id="view-jobs" aria-pressed="true">By job</button>
+          <button type="button" id="view-models" aria-pressed="false">By model</button>
+        </div>
       </header>
       <ol id="jobs"></ol>
     </div>

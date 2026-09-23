@@ -20,21 +20,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         controller.add(self, name: "card")
         let config = WKWebViewConfiguration()
         config.userContentController = controller
-        let webView = WKWebView(frame: NSRect(x: 0, y: 0, width: 400, height: 700), configuration: config)
+        let webView = WKWebView(frame: NSRect(x: 0, y: 0, width: 400, height: 1100), configuration: config)
         webView.underPageBackgroundColor = background
         webView.allowsMagnification = false
         webView.navigationDelegate = self
         self.webView = webView
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 400, height: 700),
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 1100),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
         window.title = "LLM Cheat Sheet"
         window.contentView = webView
-        window.minSize = NSSize(width: 400, height: 500)
+        window.minSize = NSSize(width: 400, height: 480)
         window.delegate = self
         window.isReleasedWhenClosed = false
         window.tabbingMode = .disallowed
@@ -42,14 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         window.backgroundColor = background
         self.window = window
 
-        if let screen = NSScreen.main {
-            let visible = screen.visibleFrame
-            let size = window.frame.size
-            window.setFrameOrigin(NSPoint(
-                x: visible.minX + 80,
-                y: visible.maxY - 60 - size.height
-            ))
-        }
+        placeOnTallestScreen()
 
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -66,6 +59,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         }
 
         refreshThenReload()
+    }
+
+    private func tallestScreen() -> NSScreen? {
+        NSScreen.screens.max(by: { $0.visibleFrame.height < $1.visibleFrame.height }) ?? window.screen
+    }
+
+    private func placeOnTallestScreen() {
+        guard let screen = tallestScreen() else { return }
+        let visible = screen.visibleFrame
+        let fitted = window.frameRect(forContentRect: NSRect(x: 0, y: 0, width: cardWidth, height: min(1100, visible.height)))
+        let frame = NSRect(
+            x: visible.minX,
+            y: visible.maxY - fitted.height,
+            width: fitted.width,
+            height: fitted.height
+        )
+        window.setFrame(frame, display: true)
+    }
+
+    private func fitContent(_ contentHeight: CGFloat) {
+        guard contentHeight > 200, let screen = tallestScreen() else { return }
+        let visible = screen.visibleFrame
+        let height = min(contentHeight, visible.height)
+        let content = NSRect(x: 0, y: 0, width: tipOpen ? window.contentRect(forFrameRect: window.frame).width : cardWidth, height: height)
+        var frame = window.frameRect(forContentRect: content)
+        if frame.height > visible.height {
+            frame.size.height = visible.height
+        }
+        frame.origin.x = tipOpen ? window.frame.minX : visible.minX
+        frame.origin.y = visible.maxY - frame.height
+        window.setFrame(frame, display: true)
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -87,9 +111,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         guard message.name == "card", let body = message.body as? [String: Any] else {
             return
         }
-        let open = (body["open"] as? Bool) ?? false
         DispatchQueue.main.async {
-            self.setTipOpen(open)
+            if let fit = body["fit"] as? NSNumber {
+                self.fitContent(CGFloat(fit.doubleValue))
+            }
+            if body["open"] != nil {
+                self.setTipOpen((body["open"] as? Bool) ?? false)
+            }
         }
     }
 

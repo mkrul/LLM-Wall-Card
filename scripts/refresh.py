@@ -19,6 +19,10 @@ NAME_PREFIXES = (
     "SpaceXAI: ",
     "DeepSeek: ",
     "MoonshotAI: ",
+    "Qwen: ",
+    "Z.ai: ",
+    "Mistral: ",
+    "Meta: ",
 )
 
 
@@ -75,7 +79,7 @@ def fetch_catalog():
 
 
 def is_skipped(model_id, extra_exclude):
-    if model_id.startswith("~") or ":batch" in model_id:
+    if model_id.startswith("~") or ":batch" in model_id or ":free" in model_id:
         return True
     return any(token in model_id for token in extra_exclude)
 
@@ -104,7 +108,9 @@ def display_name(row, fallback):
             break
     if "(" in name and name.endswith(")"):
         inner = name[name.rfind("(") + 1 : -1].strip()
-        if inner:
+        if inner.isdigit():
+            name = name[: name.rfind("(")].strip()
+        elif inner and any(char.isalpha() for char in inner):
             name = inner
     parts = name.split()
     if len(parts) > 1 and parts[-1].isdigit() and len(parts[-1]) == 4:

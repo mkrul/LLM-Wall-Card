@@ -2,7 +2,7 @@
 
 Desktop cheat sheet for which AI model to use for which job.
 
-A 400×700 window you park on a second monitor. Each row is a job in bold, the current best model under it, and one plain line about when to use it. Hover a row and the tooltip slides out to the right with the other strong models for that job.
+A narrow window on your tallest screen, only as tall as the list. Each row is a job in bold, the current best model under it, and one plain sentence about when to use it. **By model** at the top reverses that: the model name is bold, and the jobs it is the pick for sit underneath. Hover a row and the tooltip slides out to the right. The sentences are meant to be readable without insider shorthand.
 
 ## Requirements
 
@@ -34,7 +34,7 @@ Opening the card also refreshes the model names. A weekly job does the same ever
 
 `scripts/refresh.py` asks [OpenRouter](https://openrouter.ai/api/v1/models) for the current catalog and picks the latest model that matches each job in `data/families.json`.
 
-It updates the model name. It does not rewrite the job titles or the “why” lines. Those stay yours.
+It updates the model name. It does not rewrite the job titles or the “why” lines. Those stay yours. Edit them in `data/families.json` when the advice goes stale.
 
 If OpenRouter is down, the last good card still opens.
 
@@ -68,6 +68,8 @@ Edit `data/families.json`. Each job looks like this:
 | `label` | Fallback name if no catalog match is found. |
 | `also` | Optional extra models for the hover list. Same fields as above. |
 | `tasks` | Concrete jobs that model is good at. Shown in the hover list. |
+
+Write the `why` lines and `tasks` in plain sentences. If a word only makes sense to someone who already knows the model scene, replace it.
 
 Then run `python3 scripts/refresh.py`, or just open the card again.
 
