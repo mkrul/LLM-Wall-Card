@@ -371,7 +371,8 @@ function applySpeed(payload) {
   if (!speed || !payload || typeof payload.speed !== "number" || !Number.isFinite(payload.speed)) {
     return;
   }
-  speed.value = payload.speed.toFixed(1);
+  const shown = Math.min(1.2, Math.max(0.7, Math.round(payload.speed * 10) / 10));
+  speed.value = shown.toFixed(1);
 }
 
 function chooseSpeed(raw) {
@@ -379,10 +380,7 @@ function chooseSpeed(raw) {
   if (!Number.isFinite(value)) {
     return;
   }
-  const speed = Math.round(value * 10) / 10;
-  if (speed < 0.5 || speed > 2) {
-    return;
-  }
+  const speed = Math.min(1.2, Math.max(0.7, Math.round(value * 10) / 10));
   const field = document.getElementById("speed");
   if (field) {
     field.value = speed.toFixed(1);

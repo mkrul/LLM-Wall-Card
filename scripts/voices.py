@@ -11,8 +11,8 @@ VOICE_PATH = Path.home() / ".config" / "llm-cheat-sheet" / "elevenlabs.voice"
 SPEED_PATH = Path.home() / ".config" / "llm-cheat-sheet" / "elevenlabs.speed"
 VOICES_URL = "https://api.elevenlabs.io/v2/voices"
 DEFAULT_VOICE = "JBFqnCBsd6RMkjVDRZzb"
-SPEED_MIN = 0.5
-SPEED_MAX = 2.0
+SPEED_MIN = 0.7
+SPEED_MAX = 1.2
 KINDS = (
     ("personal", "yours"),
     ("workspace", "shared"),
@@ -44,9 +44,7 @@ def load_speed():
         value = round(float(SPEED_PATH.read_text().strip()), 1)
     except (OSError, ValueError):
         return 1.0
-    if value < SPEED_MIN or value > SPEED_MAX:
-        return 1.0
-    return value
+    return min(SPEED_MAX, max(SPEED_MIN, value))
 
 
 def display_name(value):

@@ -17,8 +17,8 @@ CACHE_DIR = Path.home() / "Library" / "Caches" / "llm-wall-card" / "speech"
 SPEECH_URL = "https://api.elevenlabs.io/v1/text-to-speech/{voice}"
 DEFAULT_VOICE = "JBFqnCBsd6RMkjVDRZzb"
 MODEL_ID = "eleven_turbo_v2_5"
-SPEED_MIN = 0.5
-SPEED_MAX = 2.0
+SPEED_MIN = 0.7
+SPEED_MAX = 1.2
 TEXT_LIMIT = 20000
 CHUNK_LIMIT = 9000
 FETCH_TIMEOUT = 20
@@ -49,9 +49,7 @@ def load_speed():
         value = round(float(SPEED_PATH.read_text().strip()), 1)
     except (OSError, ValueError):
         return 1.0
-    if value < SPEED_MIN or value > SPEED_MAX:
-        return 1.0
-    return value
+    return min(SPEED_MAX, max(SPEED_MIN, value))
 
 
 def plain(value):

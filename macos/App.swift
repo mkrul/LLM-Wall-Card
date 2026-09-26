@@ -214,9 +214,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
     }
 
     private func saveSpeed(_ speed: Double) {
-        let clamped = (speed * 10).rounded() / 10
-        guard clamped >= 0.5 - 0.001, clamped <= 2.0 + 0.001 else {
-            return
+        var clamped = (speed * 10).rounded() / 10
+        if clamped < 0.7 {
+            clamped = 0.7
+        }
+        if clamped > 1.2 {
+            clamped = 1.2
         }
         let directory = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".config/llm-cheat-sheet", isDirectory: true)
