@@ -1,12 +1,12 @@
 #!/bin/zsh
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-APP="$ROOT/LLM Cheat Sheet.app"
+APP="$ROOT/LLM Wall Card.app"
 DESKTOP="$HOME/Desktop"
-BIN="$APP/Contents/MacOS/LLM Cheat Sheet"
+BIN="$APP/Contents/MacOS/LLM Wall Card"
 LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
 
-rm -rf "$APP"
+rm -rf "$APP" "$ROOT/LLM Cheat Sheet.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
 swiftc -O -framework Cocoa -framework WebKit -o "$BIN" "$ROOT/macos/App.swift"
@@ -19,9 +19,9 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>LLM Cheat Sheet</string>
+	<string>LLM Wall Card</string>
 	<key>CFBundleExecutable</key>
-	<string>LLM Cheat Sheet</string>
+	<string>LLM Wall Card</string>
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
@@ -29,7 +29,7 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>LLM Cheat Sheet</string>
+	<string>LLM Wall Card</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -51,6 +51,7 @@ cp "$ROOT/assets/icon.icns" "$APP/Contents/Resources/AppIcon.icns"
 codesign --force --deep -s - "$APP"
 touch "$APP"
 "$LSREGISTER" -f "$APP" >/dev/null 2>&1 || true
-rm -f "$DESKTOP/LLM Wall.app"
-ln -sfn "$APP" "$DESKTOP/LLM Cheat Sheet.app"
+rm -f "$DESKTOP/LLM Wall.app" "$DESKTOP/LLM Cheat Sheet.app"
+ln -sfn "$APP" "$DESKTOP/LLM Wall Card.app"
 "$ROOT/scripts/install-weekly-refresh.sh"
+"$ROOT/scripts/install-daily-news.sh"

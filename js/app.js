@@ -10,14 +10,14 @@ function formatUpdatedAt(value) {
   });
 }
 
-const VIEW_KEY = "llm-cheat-sheet-view";
-let view = "jobs";
+const VIEW_KEY = "llm-wall-card-view";
+let view = "sheet";
 
 function readView() {
   try {
-    return localStorage.getItem(VIEW_KEY) === "models" ? "models" : "jobs";
+    return localStorage.getItem(VIEW_KEY) === "news" ? "news" : "sheet";
   } catch (error) {
-    return "jobs";
+    return "sheet";
   }
 }
 
@@ -30,46 +30,58 @@ function writeView(next) {
 }
 
 function setToggle(next) {
-  const jobsButton = document.getElementById("view-jobs");
-  const modelsButton = document.getElementById("view-models");
-  if (jobsButton) {
-    jobsButton.setAttribute("aria-pressed", next === "jobs" ? "true" : "false");
+  const sheetButton = document.getElementById("view-sheet");
+  const newsButton = document.getElementById("view-news");
+  if (sheetButton) {
+    sheetButton.setAttribute("aria-pressed", next === "sheet" ? "true" : "false");
   }
-  if (modelsButton) {
-    modelsButton.setAttribute("aria-pressed", next === "models" ? "true" : "false");
+  if (newsButton) {
+    newsButton.setAttribute("aria-pressed", next === "news" ? "true" : "false");
   }
 }
 
-function modelsFrom(jobs) {
-  const groups = [];
-  const indexByKey = new Map();
-  jobs.forEach((job) => {
-    const key = job.modelId || job.model || "";
-    let group = indexByKey.get(key);
-    if (!group) {
-      group = { model: job.model || "", stale: true, strengths: [] };
-      indexByKey.set(key, group);
-      groups.push(group);
-    }
-    group.stale = group.stale && !!job.stale;
-    group.strengths.push(job);
-  });
-  return groups;
-}
-
-function renderCard(card) {
+function showStamp() {
   const updatedAt = document.getElementById("updated-at");
-  const jobsEl = document.getElementById("jobs");
+  if (!updatedAt) {
+    return;
+  }
+  if (view === "news") {
+    updatedAt.textContent = window.NEWS && window.NEWS.updatedAt
+      ? `Last updated: ${formatUpdatedAt(window.NEWS.updatedAt)}`
+      : "";
+    return;
+  }
+  const card = window.CARD;
   if (!card || !Array.isArray(card.jobs)) {
     updatedAt.textContent = "No card data";
-    jobsEl.replaceChildren();
     return;
   }
   const staleCount = card.jobs.filter((job) => job.stale).length;
   const stamped = `Last updated: ${formatUpdatedAt(card.updatedAt)}`;
   updatedAt.textContent = staleCount ? `${stamped} · ${staleCount} stale` : stamped;
-  if (view === "models") {
-    renderModels(card.jobs, jobsEl);
+}
+
+function applyView() {
+  const jobsEl = document.getElementById("jobs");
+  const news = document.getElementById("news");
+  const sheet = view !== "news";
+  if (jobsEl) {
+    jobsEl.hidden = !sheet;
+  }
+  if (news) {
+    news.hidden = sheet;
+  }
+  setToggle(view);
+  showStamp();
+}
+
+function renderCard(card) {
+  const jobsEl = document.getElementById("jobs");
+  if (!jobsEl) {
+    return;
+  }
+  if (!card || !Array.isArray(card.jobs)) {
+    jobsEl.replaceChildren();
     return;
   }
   const fragment = document.createDocumentFragment();
@@ -110,59 +122,11 @@ function renderCard(card) {
   jobsEl.replaceChildren(fragment);
 }
 
-function renderModels(jobs, jobsEl) {
-  const fragment = document.createDocumentFragment();
-  modelsFrom(jobs).forEach((group) => {
-    const li = document.createElement("li");
-    if (group.stale) {
-      li.className = "stale";
-    }
-    const title = document.createElement("div");
-    title.className = "job";
-    title.textContent = group.model;
-    if (group.stale) {
-      const mark = document.createElement("span");
-      mark.className = "stale-mark";
-      mark.textContent = " STALE";
-      title.appendChild(mark);
-    }
-    li.appendChild(title);
-    group.strengths.forEach((job) => {
-      const block = document.createElement("div");
-      block.className = "strength";
-      const jobLine = document.createElement("div");
-      jobLine.className = "model";
-      jobLine.textContent = job.job || "";
-      if (job.stale && !group.stale) {
-        const mark = document.createElement("span");
-        mark.className = "stale-mark";
-        mark.textContent = " STALE";
-        jobLine.appendChild(mark);
-      }
-      const whyLine = document.createElement("div");
-      whyLine.className = "why";
-      whyLine.textContent = job.why || "";
-      block.append(jobLine, whyLine);
-      li.appendChild(block);
-    });
-    const picks = group.strengths.map((job) => ({
-      model: job.job,
-      why: job.why,
-      tasks: job.tasks
-    }));
-    li.addEventListener("mouseenter", () => showTooltip(li, picks, "Good at"));
-    li.addEventListener("mouseleave", scheduleHideTooltip);
-    fragment.appendChild(li);
-  });
-  jobsEl.replaceChildren(fragment);
-}
-
 function chooseView(next) {
-  view = next;
-  writeView(next);
+  view = next === "news" ? "news" : "sheet";
+  writeView(view);
   hideTooltip();
-  setToggle(next);
-  renderCard(window.CARD);
+  applyView();
   requestAnimationFrame(() => requestAnimationFrame(fitWindowToContent));
 }
 
@@ -218,6 +182,132 @@ function tipHandler() {
   return window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.card;
 }
 
+function renderNews(news) {
+  const credit = document.getElementById("news-by");
+  const list = document.getElementById("news-list");
+  const items = news && Array.isArray(news.items) ? news.items : [];
+  if (!credit || !list) {
+    return;
+  }
+  credit.textContent = news && news.model ? `Written by ${news.model}` : "";
+  if (!items.length) {
+    const empty = document.createElement("li");
+    empty.className = "news-empty";
+    empty.textContent = "No reports yet.";
+    list.replaceChildren(empty);
+    return;
+  }
+  const fragment = document.createDocumentFragment();
+  items.forEach((item) => {
+    const li = document.createElement("li");
+    const copy = document.createElement("div");
+    copy.className = "news-copy";
+    const title = document.createElement("div");
+    title.className = "news-title";
+    title.textContent = item.title || "";
+    copy.appendChild(title);
+    if (item.detail) {
+      const detail = document.createElement("div");
+      detail.className = "news-detail";
+      detail.textContent = item.detail;
+      copy.appendChild(detail);
+    }
+    const source = document.createElement("div");
+    source.className = "news-source";
+    source.textContent = item.source || "";
+    copy.appendChild(source);
+    li.appendChild(copy);
+    if (item.url) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "news-speak";
+      button.dataset.url = item.url;
+      button.setAttribute("aria-label", "Listen to this article");
+      button.appendChild(speakerIcon());
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        toggleSpeech(item);
+      });
+      li.appendChild(button);
+      li.addEventListener("click", () => openLink(item.url));
+    }
+    fragment.appendChild(li);
+  });
+  list.replaceChildren(fragment);
+  paintSpeech();
+}
+
+let speechURL = "";
+let speechState = "idle";
+
+function speakerIcon() {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  const body = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  body.setAttribute("fill", "currentColor");
+  body.setAttribute("d", "M3 9v6h4l5 4V5L7 9H3z");
+  const wave = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  wave.setAttribute("fill", "none");
+  wave.setAttribute("stroke", "currentColor");
+  wave.setAttribute("stroke-width", "2");
+  wave.setAttribute("d", "M16.5 8.5a5 5 0 010 7");
+  svg.append(body, wave);
+  return svg;
+}
+
+function toggleSpeech(item) {
+  const handler = tipHandler();
+  if (!handler) {
+    window.setSpeechState(item.url, "idle", "Listening runs in the LLM Wall Card app.");
+    return;
+  }
+  handler.postMessage({
+    speak: {
+      url: item.url,
+      title: item.title || "",
+      detail: item.detail || ""
+    }
+  });
+}
+
+window.setSpeechState = function (url, state, message) {
+  speechURL = state === "idle" ? "" : url;
+  speechState = state;
+  const note = document.getElementById("news-speak-note");
+  if (note) {
+    note.textContent = message || "";
+  }
+  paintSpeech();
+};
+
+function paintSpeech() {
+  document.querySelectorAll(".news-speak").forEach((button) => {
+    const active = button.dataset.url === speechURL && speechState !== "idle";
+    button.classList.toggle("is-loading", active && speechState === "loading");
+    button.classList.toggle("is-playing", active && speechState === "playing");
+    button.setAttribute("aria-pressed", active ? "true" : "false");
+    if (active && speechState === "playing") {
+      button.setAttribute("aria-label", "Stop reading");
+    } else if (active && speechState === "loading") {
+      button.setAttribute("aria-label", "Preparing audio");
+    } else {
+      button.setAttribute("aria-label", "Listen to this article");
+    }
+  });
+}
+
+function openLink(url) {
+  const handler = tipHandler();
+  if (handler) {
+    handler.postMessage({ url });
+    return;
+  }
+  window.open(url, "_blank", "noopener");
+}
+
+const VISIBLE_TASKS = 5;
+
 function contentHeight() {
   const card = document.querySelector(".card");
   const header = document.querySelector("header");
@@ -228,7 +318,18 @@ function contentHeight() {
   const cardStyle = getComputedStyle(card);
   const pad = (parseFloat(cardStyle.paddingTop) || 0) + (parseFloat(cardStyle.paddingBottom) || 0);
   const headerGap = parseFloat(getComputedStyle(header).marginBottom) || 0;
-  return Math.ceil(pad + header.offsetHeight + headerGap + jobs.offsetHeight) + 8;
+  let bodyHeight = 0;
+  const news = document.getElementById("news");
+  if (news && !news.hidden) {
+    bodyHeight = news.offsetHeight + (parseFloat(getComputedStyle(news).marginTop) || 0);
+  } else {
+    const rows = jobs.querySelectorAll("li");
+    const count = Math.min(VISIBLE_TASKS, rows.length);
+    for (let index = 0; index < count; index += 1) {
+      bodyHeight += rows[index].offsetHeight;
+    }
+  }
+  return Math.ceil(pad + header.offsetHeight + headerGap + bodyHeight);
 }
 
 function fitWindowToContent() {
@@ -292,15 +393,17 @@ function scheduleHideTooltip() {
 document.addEventListener("DOMContentLoaded", () => {
   view = readView();
   setToggle(view);
-  const jobsButton = document.getElementById("view-jobs");
-  const modelsButton = document.getElementById("view-models");
-  if (jobsButton) {
-    jobsButton.addEventListener("click", () => chooseView("jobs"));
+  const sheetButton = document.getElementById("view-sheet");
+  const newsButton = document.getElementById("view-news");
+  if (sheetButton) {
+    sheetButton.addEventListener("click", () => chooseView("sheet"));
   }
-  if (modelsButton) {
-    modelsButton.addEventListener("click", () => chooseView("models"));
+  if (newsButton) {
+    newsButton.addEventListener("click", () => chooseView("news"));
   }
   renderCard(window.CARD);
+  renderNews(window.NEWS);
+  applyView();
   setTipSpace(false);
   requestAnimationFrame(() => requestAnimationFrame(fitWindowToContent));
 });

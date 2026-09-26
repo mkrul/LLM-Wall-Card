@@ -3,24 +3,30 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>LLM Cheat Sheet</title>
+    <title>LLM Wall Card</title>
     <link rel="stylesheet" href="css/card.css">
   </head>
   <body>
     <div class="card">
       <header>
         <div class="title-row">
-          <h1>LLM Cheat Sheet</h1>
+          <h1>LLM Wall Card</h1>
           <time id="updated-at"></time>
         </div>
-        <div class="view-toggle" role="group" aria-label="List order">
-          <button type="button" id="view-jobs" aria-pressed="true">By job</button>
-          <button type="button" id="view-models" aria-pressed="false">By model</button>
+        <div class="view-toggle" role="group" aria-label="Card section">
+          <button type="button" id="view-sheet" aria-pressed="true">Cheat sheet</button>
+          <button type="button" id="view-news" aria-pressed="false">News feed</button>
         </div>
       </header>
       <ol id="jobs"></ol>
+      <section id="news" hidden>
+        <p id="news-by"></p>
+        <p id="news-speak-note"></p>
+        <ol id="news-list"></ol>
+      </section>
     </div>
     <script src="data/card-data.js"></script>
+    <script src="data/news.js"></script>
     <script src="js/app.js"></script>
   </body>
 </html>

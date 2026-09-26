@@ -1,5 +1,5 @@
 window.CARD = {
-  "updatedAt": "2026-09-23T06:04:15-04:00",
+  "updatedAt": "2026-09-26T09:49:33-04:00",
   "source": "openrouter",
   "jobs": [
     {
@@ -321,8 +321,8 @@ window.CARD = {
       "stale": false,
       "also": [
         {
-          "model": "Qwen3.8 Max",
-          "modelId": "qwen/qwen3.8-max-0902",
+          "model": "Qwen3.8 Max Prime",
+          "modelId": "qwen/qwen3.8-max-prime",
           "why": "Long documents that also include pictures or video",
           "tasks": [
             "A long project or a long document",
@@ -498,8 +498,8 @@ window.CARD = {
       "stale": false,
       "also": [
         {
-          "model": "GLM 5.3",
-          "modelId": "z-ai/glm-5.3",
+          "model": "GLM 5.3 Prime",
+          "modelId": "z-ai/glm-5.3-prime",
           "why": "A downloadable coding model that can read a very large project in one request",
           "tasks": [
             "Edits across a huge project on GLM",
@@ -524,8 +524,8 @@ window.CARD = {
     {
       "id": "qwen-work",
       "job": "Code, pictures, and video",
-      "model": "Qwen3.8 Max",
-      "modelId": "qwen/qwen3.8-max-0902",
+      "model": "Qwen3.8 Max Prime",
+      "modelId": "qwen/qwen3.8-max-prime",
       "why": "Code, pictures, and video in one request, and it can read a very long input",
       "tasks": [
         "The Qwen model for most days",
@@ -600,8 +600,8 @@ window.CARD = {
     {
       "id": "long-context-open-coding",
       "job": "Very large projects",
-      "model": "GLM 5.3",
-      "modelId": "z-ai/glm-5.3",
+      "model": "GLM 5.3 Prime",
+      "modelId": "z-ai/glm-5.3-prime",
       "why": "A downloadable model for working on a very large project in one request",
       "tasks": [
         "Edits across a big project, on a model you can download",

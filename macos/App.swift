@@ -1,7 +1,9 @@
+import AVFoundation
 import Cocoa
+import Darwin
 import WebKit
 
-final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScriptMessageHandler, WKNavigationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScriptMessageHandler, WKNavigationDelegate, AVAudioPlayerDelegate {
     private var window: NSWindow!
     private var webView: WKWebView!
     private var projectRoot: URL!
@@ -9,6 +11,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
     private var restContentWidth: CGFloat = 400
     private let cardWidth: CGFloat = 400
     private let tipExtra: CGFloat = 336
+    private var watchSource: DispatchSourceFileSystemObject?
+    private var watchFD: Int32 = -1
+    private var reloadWork: DispatchWorkItem?
+    private var speechPlayer: AVAudioPlayer?
+    private var speechTask: Process?
+    private var speechGeneration = 0
+    private var speechURL = ""
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let bundle = URL(fileURLWithPath: Bundle.main.bundlePath).resolvingSymlinksInPath()
@@ -20,19 +29,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         controller.add(self, name: "card")
         let config = WKWebViewConfiguration()
         config.userContentController = controller
-        let webView = WKWebView(frame: NSRect(x: 0, y: 0, width: 400, height: 1100), configuration: config)
+        let webView = WKWebView(frame: NSRect(x: 0, y: 0, width: 400, height: 560), configuration: config)
         webView.underPageBackgroundColor = background
         webView.allowsMagnification = false
         webView.navigationDelegate = self
         self.webView = webView
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 400, height: 1100),
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 560),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
-        window.title = "LLM Cheat Sheet"
+        window.title = "LLM Wall Card"
         window.contentView = webView
         window.minSize = NSSize(width: 400, height: 480)
         window.delegate = self
@@ -52,13 +61,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         } else {
             let alert = NSAlert()
             alert.messageText = "Could not find the card"
-            alert.informativeText = "index.html should sit next to LLM Cheat Sheet.app."
+            alert.informativeText = "index.html should sit next to LLM Wall Card.app."
             alert.runModal()
             NSApp.terminate(nil)
             return
         }
 
-        refreshThenReload()
+        watchDataDirectory()
+        catchUp()
     }
 
     private func tallestScreen() -> NSScreen? {
@@ -68,7 +78,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
     private func placeOnTallestScreen() {
         guard let screen = tallestScreen() else { return }
         let visible = screen.visibleFrame
-        let fitted = window.frameRect(forContentRect: NSRect(x: 0, y: 0, width: cardWidth, height: min(1100, visible.height)))
+        let fitted = window.frameRect(forContentRect: NSRect(x: 0, y: 0, width: cardWidth, height: min(560, visible.height)))
         let frame = NSRect(
             x: visible.minX,
             y: visible.maxY - fitted.height,
@@ -118,7 +128,49 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
             if body["open"] != nil {
                 self.setTipOpen((body["open"] as? Bool) ?? false)
             }
+            if let urlString = body["url"] as? String, let url = URL(string: urlString),
+               let scheme = url.scheme?.lowercased(), scheme == "https" || scheme == "http" {
+                NSWorkspace.shared.open(url)
+            }
+            if let speak = body["speak"] as? [String: Any], let url = speak["url"] as? String {
+                self.toggleSpeech(
+                    url: url,
+                    title: speak["title"] as? String ?? "",
+                    detail: speak["detail"] as? String ?? ""
+                )
+            }
         }
+    }
+
+    private func watchDataDirectory() {
+        let dir = projectRoot.appendingPathComponent("data")
+        watchFD = open(dir.path, O_EVTONLY)
+        guard watchFD >= 0 else { return }
+        let source = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: watchFD,
+            eventMask: .write,
+            queue: .main
+        )
+        source.setEventHandler { [weak self] in
+            self?.scheduleReload()
+        }
+        source.setCancelHandler { [weak self] in
+            if let fd = self?.watchFD, fd >= 0 {
+                close(fd)
+                self?.watchFD = -1
+            }
+        }
+        source.resume()
+        watchSource = source
+    }
+
+    private func scheduleReload() {
+        reloadWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            self?.webView.reload()
+        }
+        reloadWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6, execute: work)
     }
 
     private func setTipOpen(_ open: Bool) {
@@ -141,12 +193,149 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         }
     }
 
-    private func refreshThenReload() {
+    private func toggleSpeech(url: String, title: String, detail: String) {
+        if speechURL == url && (speechPlayer?.isPlaying == true || speechTask != nil) {
+            stopSpeech()
+            return
+        }
+        stopSpeech()
+        speechURL = url
+        speechGeneration += 1
+        let generation = speechGeneration
+        reportSpeech(url: url, state: "loading", message: "")
         let root = projectRoot!
-        let script = root.appendingPathComponent("scripts/refresh.py")
-        DispatchQueue.global(qos: .utility).async { [weak self] in
-            guard FileManager.default.isExecutableFile(atPath: script.path)
-                    || FileManager.default.fileExists(atPath: script.path) else {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let result = self?.renderSpeech(root: root, url: url, title: title, detail: detail, generation: generation)
+            DispatchQueue.main.async {
+                guard let self = self, generation == self.speechGeneration else { return }
+                self.speechTask = nil
+                switch result {
+                case .file(let path):
+                    self.playSpeech(path: path, url: url)
+                case .message(let message):
+                    self.speechURL = ""
+                    if !message.isEmpty {
+                        self.reportSpeech(url: url, state: "idle", message: message)
+                    }
+                case .none:
+                    break
+                }
+            }
+        }
+    }
+
+    private enum SpeechResult {
+        case file(String)
+        case message(String)
+    }
+
+    private func renderSpeech(root: URL, url: String, title: String, detail: String, generation: Int) -> SpeechResult {
+        let script = root.appendingPathComponent("scripts/speak.py")
+        guard FileManager.default.fileExists(atPath: script.path) else {
+            return .message("Could not find the speech script.")
+        }
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        task.arguments = [script.path]
+        task.currentDirectoryURL = root
+        let input = Pipe()
+        let output = Pipe()
+        let errors = Pipe()
+        task.standardInput = input
+        task.standardOutput = output
+        task.standardError = errors
+        if generation != speechGeneration {
+            return .message("")
+        }
+        speechTask = task
+        do {
+            try task.run()
+        } catch {
+            return .message("Could not start audio.")
+        }
+        let payload: [String: String] = ["url": url, "title": title, "detail": detail]
+        if let data = try? JSONSerialization.data(withJSONObject: payload) {
+            input.fileHandleForWriting.write(data)
+        }
+        try? input.fileHandleForWriting.close()
+        task.waitUntilExit()
+        let path = String(data: output.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if task.terminationStatus == 0, path.hasPrefix("/"), FileManager.default.fileExists(atPath: path) {
+            return .file(path)
+        }
+        if task.terminationReason == .uncaughtSignal {
+            return .message("")
+        }
+        let message = String(data: errors.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return .message(message.isEmpty ? "Could not play that article." : message)
+    }
+
+    private func playSpeech(path: String, url: String) {
+        do {
+            let player = try AVAudioPlayer(contentsOf: URL(fileURLWithPath: path))
+            player.delegate = self
+            speechPlayer = player
+            player.play()
+            reportSpeech(url: url, state: "playing", message: "")
+        } catch {
+            speechURL = ""
+            reportSpeech(url: url, state: "idle", message: "Could not play that article.")
+        }
+    }
+
+    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        guard player === speechPlayer else { return }
+        let url = speechURL
+        speechPlayer = nil
+        speechURL = ""
+        reportSpeech(url: url, state: "idle", message: "")
+    }
+
+    private func stopSpeech() {
+        speechGeneration += 1
+        speechTask?.terminate()
+        speechTask = nil
+        speechPlayer?.stop()
+        speechPlayer = nil
+        let url = speechURL
+        speechURL = ""
+        if !url.isEmpty {
+            reportSpeech(url: url, state: "idle", message: "")
+        }
+    }
+
+    private func reportSpeech(url: String, state: String, message: String) {
+        let js = "window.setSpeechState(\(jsString(url)), \(jsString(state)), \(jsString(message)))"
+        webView.evaluateJavaScript(js, completionHandler: nil)
+    }
+
+    private func jsString(_ value: String) -> String {
+        var out = "\""
+        for scalar in value.unicodeScalars {
+            switch scalar {
+            case "\\":
+                out += "\\\\"
+            case "\"":
+                out += "\\\""
+            case "\n":
+                out += "\\n"
+            case "\r":
+                out += "\\r"
+            default:
+                out.unicodeScalars.append(scalar)
+            }
+        }
+        out += "\""
+        return out
+    }
+
+    private func catchUp() {
+        let root = projectRoot!
+        let script = root.appendingPathComponent("scripts/catch-up.py")
+        DispatchQueue.global(qos: .utility).async {
+            guard FileManager.default.fileExists(atPath: script.path) else {
                 return
             }
             let task = Process()
@@ -160,9 +349,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
                 task.waitUntilExit()
             } catch {
                 return
-            }
-            DispatchQueue.main.async {
-                self?.webView.reload()
             }
         }
     }
