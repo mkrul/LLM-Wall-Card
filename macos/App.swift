@@ -18,6 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
     private var speechTask: Process?
     private var speechGeneration = 0
     private var speechURL = ""
+    private var voicesLoading = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let bundle = URL(fileURLWithPath: Bundle.main.bundlePath).resolvingSymlinksInPath()
@@ -89,17 +90,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
     }
 
     private func fitContent(_ contentHeight: CGFloat) {
-        guard contentHeight > 200, let screen = tallestScreen() else { return }
+        guard contentHeight > 200 else { return }
+        let screen = window.screen ?? tallestScreen()
+        guard let screen else { return }
         let visible = screen.visibleFrame
-        let height = min(contentHeight, visible.height)
-        let content = NSRect(x: 0, y: 0, width: tipOpen ? window.contentRect(forFrameRect: window.frame).width : cardWidth, height: height)
-        var frame = window.frameRect(forContentRect: content)
+        let width = tipOpen ? window.contentRect(forFrameRect: window.frame).width : cardWidth
+        var height = contentHeight
+        let frame = window.frameRect(forContentRect: NSRect(x: 0, y: 0, width: width, height: height))
         if frame.height > visible.height {
-            frame.size.height = visible.height
+            let chrome = frame.height - height
+            height = max(200, visible.height - chrome)
         }
-        frame.origin.x = tipOpen ? window.frame.minX : visible.minX
-        frame.origin.y = visible.maxY - frame.height
-        window.setFrame(frame, display: true)
+        window.setContentSize(NSSize(width: width, height: height))
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -139,7 +141,89 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
                     detail: speak["detail"] as? String ?? ""
                 )
             }
+            if let url = body["cancel"] as? String {
+                self.cancelSpeech(url: url)
+            }
+            if (body["voices"] as? Bool) == true || (body["voices"] as? NSNumber)?.boolValue == true {
+                self.loadVoices()
+            }
+            if let voice = body["voice"] as? String {
+                self.saveVoice(voice)
+            }
+            if let speed = body["speed"] as? NSNumber {
+                self.saveSpeed(speed.doubleValue)
+            }
         }
+    }
+
+    private func loadVoices() {
+        if voicesLoading {
+            return
+        }
+        voicesLoading = true
+        let root = projectRoot!
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let json = self?.fetchVoices(root: root) ?? #"{"voices":[],"selected":"","error":"Could not load voices."}"#
+            DispatchQueue.main.async {
+                self?.voicesLoading = false
+                self?.reportVoices(json)
+            }
+        }
+    }
+
+    private func fetchVoices(root: URL) -> String {
+        let script = root.appendingPathComponent("scripts/voices.py")
+        guard FileManager.default.fileExists(atPath: script.path) else {
+            return #"{"voices":[],"selected":"","error":"Could not load voices."}"#
+        }
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        task.arguments = [script.path]
+        task.currentDirectoryURL = root
+        let output = Pipe()
+        task.standardOutput = output
+        task.standardError = Pipe()
+        do {
+            try task.run()
+        } catch {
+            return #"{"voices":[],"selected":"","error":"Could not load voices."}"#
+        }
+        let text = String(data: output.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        task.waitUntilExit()
+        if text.hasPrefix("{") {
+            return text
+        }
+        return #"{"voices":[],"selected":"","error":"Could not load voices."}"#
+    }
+
+    private func reportVoices(_ json: String) {
+        let js = "window.setVoices(JSON.parse(\(jsString(json))))"
+        webView.evaluateJavaScript(js, completionHandler: nil)
+    }
+
+    private func saveVoice(_ voice: String) {
+        guard voice.range(of: "^[A-Za-z0-9]{8,80}$", options: .regularExpression) != nil else {
+            return
+        }
+        let directory = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".config/llm-cheat-sheet", isDirectory: true)
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let url = directory.appendingPathComponent("elevenlabs.voice")
+        try? Data(voice.utf8).write(to: url, options: .atomic)
+    }
+
+    private func saveSpeed(_ speed: Double) {
+        let clamped = (speed * 10).rounded() / 10
+        guard clamped >= 0.5 - 0.001, clamped <= 2.0 + 0.001 else {
+            return
+        }
+        let directory = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".config/llm-cheat-sheet", isDirectory: true)
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let url = directory.appendingPathComponent("elevenlabs.speed")
+        let text = String(format: "%.1f", clamped)
+        try? Data(text.utf8).write(to: url, options: .atomic)
     }
 
     private func watchDataDirectory() {
@@ -202,55 +286,67 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         speechURL = url
         speechGeneration += 1
         let generation = speechGeneration
-        reportSpeech(url: url, state: "loading", message: "")
-        let root = projectRoot!
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let result = self?.renderSpeech(root: root, url: url, title: title, detail: detail, generation: generation)
-            DispatchQueue.main.async {
-                guard let self = self, generation == self.speechGeneration else { return }
-                self.speechTask = nil
-                switch result {
-                case .file(let path):
-                    self.playSpeech(path: path, url: url)
-                case .message(let message):
-                    self.speechURL = ""
-                    if !message.isEmpty {
-                        self.reportSpeech(url: url, state: "idle", message: message)
+        switch beginSpeech(url: url, title: title, detail: detail) {
+        case .running(let task, let output, let errors):
+            reportSpeech(url: url, state: "loading", message: "")
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                task.waitUntilExit()
+                let path = String(data: output.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                let finished = task.terminationStatus == 0 && path.hasPrefix("/") && FileManager.default.fileExists(atPath: path)
+                let signalled = task.terminationReason == .uncaughtSignal
+                let message = String(data: errors.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                DispatchQueue.main.async {
+                    guard let self = self, generation == self.speechGeneration else { return }
+                    self.speechTask = nil
+                    if finished {
+                        self.playSpeech(path: path, url: url)
+                    } else if signalled {
+                        self.speechURL = ""
+                    } else {
+                        self.speechURL = ""
+                        self.reportSpeech(
+                            url: url,
+                            state: "idle",
+                            message: message.isEmpty ? "Could not play that article." : message
+                        )
                     }
-                case .none:
-                    break
                 }
+            }
+        case .message(let message):
+            speechURL = ""
+            if !message.isEmpty {
+                reportSpeech(url: url, state: "idle", message: message)
             }
         }
     }
 
-    private enum SpeechResult {
-        case file(String)
+    private enum SpeechStart {
+        case running(Process, Pipe, Pipe)
         case message(String)
     }
 
-    private func renderSpeech(root: URL, url: String, title: String, detail: String, generation: Int) -> SpeechResult {
-        let script = root.appendingPathComponent("scripts/speak.py")
+    private func beginSpeech(url: String, title: String, detail: String) -> SpeechStart {
+        let script = projectRoot.appendingPathComponent("scripts/speak.py")
         guard FileManager.default.fileExists(atPath: script.path) else {
             return .message("Could not find the speech script.")
         }
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
         task.arguments = [script.path]
-        task.currentDirectoryURL = root
+        task.currentDirectoryURL = projectRoot
         let input = Pipe()
         let output = Pipe()
         let errors = Pipe()
         task.standardInput = input
         task.standardOutput = output
         task.standardError = errors
-        if generation != speechGeneration {
-            return .message("")
-        }
         speechTask = task
         do {
             try task.run()
         } catch {
+            speechTask = nil
             return .message("Could not start audio.")
         }
         let payload: [String: String] = ["url": url, "title": title, "detail": detail]
@@ -258,18 +354,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
             input.fileHandleForWriting.write(data)
         }
         try? input.fileHandleForWriting.close()
-        task.waitUntilExit()
-        let path = String(data: output.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if task.terminationStatus == 0, path.hasPrefix("/"), FileManager.default.fileExists(atPath: path) {
-            return .file(path)
-        }
-        if task.terminationReason == .uncaughtSignal {
-            return .message("")
-        }
-        let message = String(data: errors.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return .message(message.isEmpty ? "Could not play that article." : message)
+        return .running(task, output, errors)
+    }
+
+    private func cancelSpeech(url: String) {
+        guard speechURL == url, speechTask != nil else { return }
+        stopSpeech()
     }
 
     private func playSpeech(path: String, url: String) {

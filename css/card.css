@@ -33,10 +33,48 @@ header {
   justify-content: space-between;
 }
 
+.view-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  margin-top: 8px;
+}
+
 .view-toggle {
   display: flex;
-  margin-top: 8px;
+  flex: 1;
+  min-width: 0;
   border: 1px solid #3a3a3a;
+}
+
+#voice {
+  flex: none;
+  width: 108px;
+  margin: 0;
+  padding: 0 4px;
+  border: 1px solid #3a3a3a;
+  background: #161616;
+  color: #f2f0ea;
+  color-scheme: dark;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+#speed {
+  flex: none;
+  width: 48px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid #3a3a3a;
+  background: #161616;
+  color: #f2f0ea;
+  color-scheme: dark;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
 }
 
 .view-toggle button {
@@ -47,7 +85,7 @@ header {
   background: transparent;
   color: #9c9890;
   font: inherit;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -170,7 +208,15 @@ h1 {
   min-width: 0;
 }
 
-.news-speak {
+.news-actions {
+  display: flex;
+  flex: none;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.news-speak,
+.news-cancel {
   flex: none;
   width: 22px;
   height: 22px;
@@ -182,19 +228,57 @@ h1 {
   cursor: pointer;
 }
 
-.news-speak svg {
+.news-speak svg,
+.news-cancel svg {
   display: block;
   width: 16px;
   height: 16px;
   margin: 3px;
 }
 
+.news-cancel {
+  display: none;
+}
+
+.news-cancel.is-shown {
+  display: block;
+}
+
 .news-speak.is-playing {
   color: #f2f0ea;
 }
 
-.news-speak.is-loading {
-  opacity: 0.4;
+.news-spinner {
+  display: none;
+  box-sizing: border-box;
+  width: 12px;
+  height: 12px;
+  margin: 5px;
+  border: 2px solid rgba(196, 165, 116, 0.35);
+  border-top-color: #c4a574;
+  border-radius: 50%;
+  animation: news-spin 0.7s linear infinite;
+}
+
+.news-speak.is-loading svg {
+  display: none;
+}
+
+.news-speak.is-loading .news-spinner {
+  display: block;
+}
+
+@keyframes news-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .news-speak.is-loading .news-spinner {
+    animation: none;
+    border-color: #c4a574;
+  }
 }
 
 .news-title {

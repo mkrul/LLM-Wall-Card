@@ -12,10 +12,13 @@ from pathlib import Path
 
 KEY_PATH = Path.home() / ".config" / "llm-cheat-sheet" / "elevenlabs.key"
 VOICE_PATH = Path.home() / ".config" / "llm-cheat-sheet" / "elevenlabs.voice"
+SPEED_PATH = Path.home() / ".config" / "llm-cheat-sheet" / "elevenlabs.speed"
 CACHE_DIR = Path.home() / "Library" / "Caches" / "llm-wall-card" / "speech"
 SPEECH_URL = "https://api.elevenlabs.io/v1/text-to-speech/{voice}"
 DEFAULT_VOICE = "JBFqnCBsd6RMkjVDRZzb"
 MODEL_ID = "eleven_turbo_v2_5"
+SPEED_MIN = 0.5
+SPEED_MAX = 2.0
 TEXT_LIMIT = 20000
 CHUNK_LIMIT = 9000
 FETCH_TIMEOUT = 20
@@ -39,6 +42,16 @@ def load_voice():
     except OSError:
         voice = ""
     return voice or DEFAULT_VOICE
+
+
+def load_speed():
+    try:
+        value = round(float(SPEED_PATH.read_text().strip()), 1)
+    except (OSError, ValueError):
+        return 1.0
+    if value < SPEED_MIN or value > SPEED_MAX:
+        return 1.0
+    return value
 
 
 def plain(value):
@@ -158,11 +171,13 @@ def chunks(text):
     return [piece for piece in pieces if piece]
 
 
-def synthesize(text, key, voice):
-    payload = json.dumps({"text": text, "model_id": MODEL_ID}).encode()
+def synthesize(text, key, voice, speed):
+    payload = {"text": text, "model_id": MODEL_ID}
+    if abs(speed - 1.0) >= 0.05:
+        payload["voice_settings"] = {"speed": speed}
     request = urllib.request.Request(
         SPEECH_URL.format(voice=voice) + "?output_format=mp3_44100_128",
-        data=payload,
+        data=json.dumps(payload).encode(),
         headers={
             "xi-api-key": key,
             "Content-Type": "application/json",
@@ -191,8 +206,8 @@ def synthesize(text, key, voice):
     return audio
 
 
-def cache_path(url, voice):
-    digest = hashlib.sha256(f"{voice}\n{MODEL_ID}\n{url}".encode()).hexdigest()
+def cache_path(url, voice, speed):
+    digest = hashlib.sha256(f"{voice}\n{MODEL_ID}\n{speed:.1f}\n{url}".encode()).hexdigest()
     return CACHE_DIR / f"{digest}.mp3"
 
 
@@ -217,7 +232,8 @@ def main():
             "Add your ElevenLabs key as one line in ~/.config/llm-cheat-sheet/elevenlabs.key"
         )
     voice = load_voice()
-    path = cache_path(url, voice)
+    speed = load_speed()
+    path = cache_path(url, voice, speed)
     if path.is_file() and path.stat().st_size > 1000:
         print(path)
         return
@@ -226,7 +242,7 @@ def main():
         raise SystemExit("Could not read that article.")
     audio = b""
     for piece in chunks(text):
-        audio += synthesize(piece, key, voice)
+        audio += synthesize(piece, key, voice, speed)
     write_audio(path, audio)
     print(path)
 

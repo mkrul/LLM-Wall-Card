@@ -218,17 +218,31 @@ function renderNews(news) {
     copy.appendChild(source);
     li.appendChild(copy);
     if (item.url) {
+      const actions = document.createElement("div");
+      actions.className = "news-actions";
       const button = document.createElement("button");
       button.type = "button";
       button.className = "news-speak";
       button.dataset.url = item.url;
       button.setAttribute("aria-label", "Listen to this article");
       button.appendChild(speakerIcon());
+      button.appendChild(spinnerIcon());
       button.addEventListener("click", (event) => {
         event.stopPropagation();
         toggleSpeech(item);
       });
-      li.appendChild(button);
+      const cancel = document.createElement("button");
+      cancel.type = "button";
+      cancel.className = "news-cancel";
+      cancel.dataset.url = item.url;
+      cancel.setAttribute("aria-label", "Cancel audio");
+      cancel.appendChild(cancelIcon());
+      cancel.addEventListener("click", (event) => {
+        event.stopPropagation();
+        cancelSpeech(item);
+      });
+      actions.append(button, cancel);
+      li.appendChild(actions);
       li.addEventListener("click", () => openLink(item.url));
     }
     fragment.appendChild(li);
@@ -256,6 +270,34 @@ function speakerIcon() {
   return svg;
 }
 
+function spinnerIcon() {
+  const spinner = document.createElement("span");
+  spinner.className = "news-spinner";
+  spinner.setAttribute("aria-hidden", "true");
+  return spinner;
+}
+
+function cancelIcon() {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  const ring = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+  ring.setAttribute("cx", "12");
+  ring.setAttribute("cy", "12");
+  ring.setAttribute("r", "8");
+  ring.setAttribute("fill", "none");
+  ring.setAttribute("stroke", "currentColor");
+  ring.setAttribute("stroke-width", "2");
+  const slash = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  slash.setAttribute("fill", "none");
+  slash.setAttribute("stroke", "currentColor");
+  slash.setAttribute("stroke-width", "2");
+  slash.setAttribute("stroke-linecap", "round");
+  slash.setAttribute("d", "M7.2 16.8L16.8 7.2");
+  svg.append(ring, slash);
+  return svg;
+}
+
 function toggleSpeech(item) {
   const handler = tipHandler();
   if (!handler) {
@@ -269,6 +311,18 @@ function toggleSpeech(item) {
       detail: item.detail || ""
     }
   });
+}
+
+function cancelSpeech(item) {
+  if (speechURL !== item.url || speechState !== "loading") {
+    return;
+  }
+  const handler = tipHandler();
+  if (!handler) {
+    window.setSpeechState(item.url, "idle", "");
+    return;
+  }
+  handler.postMessage({ cancel: item.url });
 }
 
 window.setSpeechState = function (url, state, message) {
@@ -287,15 +341,128 @@ function paintSpeech() {
     button.classList.toggle("is-loading", active && speechState === "loading");
     button.classList.toggle("is-playing", active && speechState === "playing");
     button.setAttribute("aria-pressed", active ? "true" : "false");
+    if (!(active && speechState === "loading")) {
+      button.removeAttribute("aria-busy");
+    }
     if (active && speechState === "playing") {
       button.setAttribute("aria-label", "Stop reading");
     } else if (active && speechState === "loading") {
       button.setAttribute("aria-label", "Preparing audio");
+      button.setAttribute("aria-busy", "true");
     } else {
       button.setAttribute("aria-label", "Listen to this article");
     }
   });
+  document.querySelectorAll(".news-cancel").forEach((button) => {
+    const loading = button.dataset.url === speechURL && speechState === "loading";
+    button.classList.toggle("is-shown", loading);
+    button.tabIndex = loading ? 0 : -1;
+  });
 }
+
+function voiceLabel(name) {
+  const clean = String(name || "").replace(/\s+/g, " ").trim();
+  const label = clean.split(/\s+(?:—|–|-|\|)\s+/)[0].trim();
+  return (label || clean).slice(0, 40);
+}
+
+function applySpeed(payload) {
+  const speed = document.getElementById("speed");
+  if (!speed || !payload || typeof payload.speed !== "number" || !Number.isFinite(payload.speed)) {
+    return;
+  }
+  speed.value = payload.speed.toFixed(1);
+}
+
+function chooseSpeed(raw) {
+  const value = Number(raw);
+  if (!Number.isFinite(value)) {
+    return;
+  }
+  const speed = Math.round(value * 10) / 10;
+  if (speed < 0.5 || speed > 2) {
+    return;
+  }
+  const field = document.getElementById("speed");
+  if (field) {
+    field.value = speed.toFixed(1);
+  }
+  const handler = tipHandler();
+  if (handler) {
+    handler.postMessage({ speed });
+  }
+}
+
+function chooseVoice(id) {
+  if (!id) {
+    return;
+  }
+  const handler = tipHandler();
+  if (handler) {
+    handler.postMessage({ voice: id });
+  }
+}
+
+window.setVoices = function (payload) {
+  applySpeed(payload);
+  const select = document.getElementById("voice");
+  if (!select || !payload) {
+    return;
+  }
+  const voices = Array.isArray(payload.voices) ? payload.voices : [];
+  select.replaceChildren();
+  if (payload.error) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = payload.error;
+    select.appendChild(option);
+    select.disabled = true;
+    select.title = payload.error === "Needs Voices read"
+      ? "Edit this ElevenLabs key and turn on Voices read. Then reopen the card."
+      : payload.error;
+    return;
+  }
+  select.disabled = false;
+  select.title = "Reading voice";
+  const groups = [
+    ["yours", "Your voices"],
+    ["shared", "Shared voices"],
+    ["standard", "Standard voices"]
+  ];
+  groups.forEach(([kind, label]) => {
+    const rows = voices.filter((voice) => voice.kind === kind && voice.id && voice.name);
+    if (!rows.length) {
+      return;
+    }
+    const group = document.createElement("optgroup");
+    group.label = label;
+    rows.forEach((voice) => {
+      const option = document.createElement("option");
+      option.value = voice.id;
+      option.textContent = voiceLabel(voice.name);
+      group.appendChild(option);
+    });
+    select.appendChild(group);
+  });
+  if (!select.options.length) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = "No voices found";
+    select.appendChild(option);
+    select.disabled = true;
+    return;
+  }
+  const known = new Set([...select.options].map((option) => option.value));
+  if (payload.selected && !known.has(payload.selected)) {
+    const option = document.createElement("option");
+    option.value = payload.selected;
+    option.textContent = "Saved voice";
+    select.insertBefore(option, select.firstChild);
+  }
+  if (payload.selected && [...select.options].some((option) => option.value === payload.selected)) {
+    select.value = payload.selected;
+  }
+};
 
 function openLink(url) {
   const handler = tipHandler();
@@ -401,9 +568,21 @@ document.addEventListener("DOMContentLoaded", () => {
   if (newsButton) {
     newsButton.addEventListener("click", () => chooseView("news"));
   }
+  const voice = document.getElementById("voice");
+  if (voice) {
+    voice.addEventListener("change", () => chooseVoice(voice.value));
+  }
+  const speed = document.getElementById("speed");
+  if (speed) {
+    speed.addEventListener("change", () => chooseSpeed(speed.value));
+  }
   renderCard(window.CARD);
   renderNews(window.NEWS);
   applyView();
   setTipSpace(false);
+  const handler = tipHandler();
+  if (handler) {
+    handler.postMessage({ voices: true });
+  }
   requestAnimationFrame(() => requestAnimationFrame(fitWindowToContent));
 });
