@@ -1,5 +1,5 @@
 window.CARD = {
-  "updatedAt": "2026-09-26T09:49:33-04:00",
+  "updatedAt": "2026-09-27T07:41:25-04:00",
   "source": "openrouter",
   "jobs": [
     {

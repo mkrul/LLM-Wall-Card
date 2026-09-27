@@ -20,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
     private var speechGeneration = 0
     private var speechURL = ""
     private var voicesLoading = false
+    private var refreshRunning = false
     private var savedOrigin: NSPoint?
     private var suppressFrameSave = false
     private var frameRestoreWork: DispatchWorkItem?
@@ -262,6 +263,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
             if let speed = body["speed"] as? NSNumber {
                 self.saveSpeed(speed.doubleValue)
             }
+            if let refresh = body["refresh"] as? String {
+                self.refreshVisible(refresh)
+            }
         }
     }
 
@@ -336,6 +340,64 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         let url = directory.appendingPathComponent("elevenlabs.speed")
         let text = String(format: "%.1f", clamped)
         try? Data(text.utf8).write(to: url, options: .atomic)
+    }
+
+    private func refreshVisible(_ which: String) {
+        if refreshRunning {
+            return
+        }
+        let name = which == "news" ? "news.py" : "refresh.py"
+        let root = projectRoot!
+        let script = root.appendingPathComponent("scripts").appendingPathComponent(name)
+        guard FileManager.default.fileExists(atPath: script.path) else {
+            reportRefresh(state: "idle", message: "Could not find the refresh script.")
+            return
+        }
+        refreshRunning = true
+        reportRefresh(state: "busy", message: "")
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let task = Process()
+            task.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+            task.arguments = [script.path]
+            task.currentDirectoryURL = root
+            let output = Pipe()
+            let errors = Pipe()
+            task.standardOutput = output
+            task.standardError = errors
+            do {
+                try task.run()
+            } catch {
+                DispatchQueue.main.async {
+                    self?.refreshRunning = false
+                    self?.reportRefresh(state: "idle", message: "Could not start the refresh.")
+                }
+                return
+            }
+            let errText = String(data: errors.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            _ = output.fileHandleForReading.readDataToEndOfFile()
+            task.waitUntilExit()
+            let code = task.terminationStatus
+            let wrote = code == 0 || (name == "refresh.py" && code == 2)
+            let message: String
+            if wrote && errText.contains("kept the previous list") {
+                message = "No newer reports. The list is unchanged."
+            } else if wrote {
+                message = ""
+            } else {
+                let line = errText.split(separator: "\n").first.map(String.init) ?? ""
+                message = line.isEmpty ? "Could not refresh." : String(line.prefix(140))
+            }
+            DispatchQueue.main.async {
+                self?.refreshRunning = false
+                self?.reportRefresh(state: "idle", message: message)
+            }
+        }
+    }
+
+    private func reportRefresh(state: String, message: String) {
+        let js = "window.setRefreshState(\(jsString(state)), \(jsString(message)))"
+        webView.evaluateJavaScript(js, completionHandler: nil)
     }
 
     private func watchDataDirectory() {

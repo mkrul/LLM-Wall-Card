@@ -45,6 +45,7 @@ function showStamp() {
   if (!updatedAt) {
     return;
   }
+  updatedAt.classList.remove("is-error");
   if (view === "news") {
     updatedAt.textContent = window.NEWS && window.NEWS.updatedAt
       ? `Last updated: ${formatUpdatedAt(window.NEWS.updatedAt)}`
@@ -81,7 +82,55 @@ function applyView() {
   }
   setToggle(view);
   showStamp();
+  const refresh = document.getElementById("refresh");
+  if (refresh && !refresh.classList.contains("is-busy")) {
+    refresh.setAttribute("aria-label", refreshLabel());
+  }
 }
+
+function refreshLabel() {
+  return view === "news" ? "Refresh the news feed" : "Refresh the cheat sheet";
+}
+
+function refreshCurrent() {
+  const button = document.getElementById("refresh");
+  if (button && button.disabled) {
+    return;
+  }
+  const handler = tipHandler();
+  if (!handler) {
+    window.setRefreshState("idle", "Refreshing runs in the LLM Wall Card app.");
+    return;
+  }
+  window.setRefreshState("busy", "");
+  handler.postMessage({ refresh: view === "news" ? "news" : "sheet" });
+}
+
+window.setRefreshState = function (state, message) {
+  const button = document.getElementById("refresh");
+  const updatedAt = document.getElementById("updated-at");
+  const busy = state === "busy";
+  if (button) {
+    button.disabled = busy;
+    button.classList.toggle("is-busy", busy);
+    button.setAttribute("aria-label", busy ? "Refreshing" : refreshLabel());
+  }
+  if (busy) {
+    if (updatedAt) {
+      updatedAt.classList.remove("is-error");
+    }
+    return;
+  }
+  if (message && updatedAt) {
+    updatedAt.textContent = message;
+    updatedAt.classList.add("is-error");
+    return;
+  }
+  if (updatedAt) {
+    updatedAt.classList.remove("is-error");
+  }
+  showStamp();
+};
 
 function renderCard(card) {
   const jobsEl = document.getElementById("jobs");
@@ -629,6 +678,10 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   if (newsButton) {
     newsButton.addEventListener("click", () => chooseView("news"));
+  }
+  const refresh = document.getElementById("refresh");
+  if (refresh) {
+    refresh.addEventListener("click", refreshCurrent);
   }
   const voice = document.getElementById("voice");
   if (voice) {

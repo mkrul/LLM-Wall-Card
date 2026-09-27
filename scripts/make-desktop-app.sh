@@ -53,5 +53,7 @@ touch "$APP"
 "$LSREGISTER" -f "$APP" >/dev/null 2>&1 || true
 rm -f "$DESKTOP/LLM Wall.app" "$DESKTOP/LLM Cheat Sheet.app"
 ln -sfn "$APP" "$DESKTOP/LLM Wall Card.app"
-"$ROOT/scripts/install-weekly-refresh.sh"
-"$ROOT/scripts/install-daily-news.sh"
+UID_NUM="$(id -u)"
+launchctl bootout "gui/${UID_NUM}/com.llmcheatsheet.refresh" 2>/dev/null || true
+launchctl bootout "gui/${UID_NUM}/com.llmcheatsheet.news" 2>/dev/null || true
+rm -f "$HOME/Library/LaunchAgents/com.llmcheatsheet.refresh.plist" "$HOME/Library/LaunchAgents/com.llmcheatsheet.news.plist"

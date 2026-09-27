@@ -30,9 +30,7 @@ You can also run:
 ./launch.sh
 ```
 
-The job list updates weekly, every Sunday at 7:00. If the card is already more than a week old when you open it, that update runs then too.
-
-The news feed updates every day at 7:15. If that file is already more than 20 hours old when you open the card, it updates then too. An open window reloads when either file changes.
+The refresh icon beside the last-updated line reloads the view you are on. On the cheat sheet it asks OpenRouter for the current model names. On the news feed it gathers the day's reports. If the cheat sheet is already more than a week old when you open the card, that update runs then too. If the news file is already more than 20 hours old, it updates then too. An open window reloads when either file changes.
 
 ## What a refresh does
 
@@ -40,9 +38,7 @@ The news feed updates every day at 7:15. If that file is already more than 20 ho
 
 It updates the model name. It does not rewrite the job titles or the “why” lines. Those stay yours. Edit them in `data/families.json` when the advice goes stale.
 
-If OpenRouter is down, the last good card still opens.
-
-The Sunday job is installed by `scripts/install-weekly-refresh.sh`. `make-desktop-app.sh` runs that for you.
+If OpenRouter is down, the last good card still opens. Use the refresh icon on the cheat sheet to run this again.
 
 ## AI news
 
@@ -52,7 +48,7 @@ The sentences are written by the model on the **Fast and low cost** row (Gemini 
 
 That write step needs an OpenRouter key in `~/.config/llm-cheat-sheet/openrouter.key`, or in the `OPENROUTER_API_KEY` environment variable. One line, the key only. Without it, the headlines and the publications' own sentences still update every day. The card does not invent news.
 
-The daily job is installed by `scripts/install-daily-news.sh`.
+Use the refresh icon on the news feed to run this again.
 
 The speaker at the right of a story reads that article aloud. Audio is made only when you click that speaker, through your ElevenLabs account. Clicking the speaker while it is playing stops it. Clicking it while it is paused starts it again. While the audio is being made, a circle with a slash appears beside the speaker and cancels that request. While it is playing, a pause button appears there and holds the playback. A later click on a story you have already heard replays the saved audio and does not call ElevenLabs again, unless the voice or the speed has changed. Playback continues while another app is in front, as long as this card is still open.
 
@@ -114,7 +110,7 @@ scripts/news.py
 scripts/speak.py           reads one article aloud when its speaker is clicked
 scripts/voices.py          lists ElevenLabs voices for the News feed menu
 scripts/catch-up.py       runs news if it is stale, and the card if it is a week old
-scripts/install-weekly-refresh.sh
-scripts/install-daily-news.sh
+scripts/install-weekly-refresh.sh  old Sunday timer, no longer installed
+scripts/install-daily-news.sh    old morning timer, no longer installed
 scripts/make-desktop-app.sh
 ```
