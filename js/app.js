@@ -71,6 +71,14 @@ function applyView() {
   if (news) {
     news.hidden = sheet;
   }
+  const voice = document.getElementById("voice");
+  const speed = document.getElementById("speed");
+  if (voice) {
+    voice.hidden = sheet;
+  }
+  if (speed) {
+    speed.hidden = sheet;
+  }
   setToggle(view);
   showStamp();
 }
@@ -226,10 +234,20 @@ function renderNews(news) {
       button.dataset.url = item.url;
       button.setAttribute("aria-label", "Listen to this article");
       button.appendChild(speakerIcon());
-      button.appendChild(spinnerIcon());
       button.addEventListener("click", (event) => {
         event.stopPropagation();
         toggleSpeech(item);
+      });
+      const pause = document.createElement("button");
+      pause.type = "button";
+      pause.className = "news-pause";
+      pause.dataset.url = item.url;
+      pause.setAttribute("aria-label", "Pause reading");
+      pause.appendChild(pauseIcon());
+      pause.appendChild(resumeIcon());
+      pause.addEventListener("click", (event) => {
+        event.stopPropagation();
+        pauseSpeech(item);
       });
       const cancel = document.createElement("button");
       cancel.type = "button";
@@ -241,7 +259,10 @@ function renderNews(news) {
         event.stopPropagation();
         cancelSpeech(item);
       });
-      actions.append(button, cancel);
+      const extra = document.createElement("div");
+      extra.className = "news-extra";
+      extra.append(pause, cancel);
+      actions.append(button, extra);
       li.appendChild(actions);
       li.addEventListener("click", () => openLink(item.url));
     }
@@ -270,11 +291,39 @@ function speakerIcon() {
   return svg;
 }
 
-function spinnerIcon() {
-  const spinner = document.createElement("span");
-  spinner.className = "news-spinner";
-  spinner.setAttribute("aria-hidden", "true");
-  return spinner;
+function pauseIcon() {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  svg.classList.add("is-pause");
+  const left = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+  left.setAttribute("x", "6");
+  left.setAttribute("y", "5");
+  left.setAttribute("width", "4");
+  left.setAttribute("height", "14");
+  left.setAttribute("rx", "1");
+  left.setAttribute("fill", "currentColor");
+  const right = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+  right.setAttribute("x", "14");
+  right.setAttribute("y", "5");
+  right.setAttribute("width", "4");
+  right.setAttribute("height", "14");
+  right.setAttribute("rx", "1");
+  right.setAttribute("fill", "currentColor");
+  svg.append(left, right);
+  return svg;
+}
+
+function resumeIcon() {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  svg.classList.add("is-resume");
+  const triangle = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  triangle.setAttribute("fill", "currentColor");
+  triangle.setAttribute("d", "M8 5v14l11-7z");
+  svg.appendChild(triangle);
+  return svg;
 }
 
 function cancelIcon() {
@@ -313,6 +362,18 @@ function toggleSpeech(item) {
   });
 }
 
+function pauseSpeech(item) {
+  if (speechURL !== item.url || (speechState !== "playing" && speechState !== "paused")) {
+    return;
+  }
+  const handler = tipHandler();
+  if (!handler) {
+    window.setSpeechState(item.url, speechState === "playing" ? "paused" : "playing", "");
+    return;
+  }
+  handler.postMessage({ pause: item.url });
+}
+
 function cancelSpeech(item) {
   if (speechURL !== item.url || speechState !== "loading") {
     return;
@@ -338,20 +399,23 @@ window.setSpeechState = function (url, state, message) {
 function paintSpeech() {
   document.querySelectorAll(".news-speak").forEach((button) => {
     const active = button.dataset.url === speechURL && speechState !== "idle";
-    button.classList.toggle("is-loading", active && speechState === "loading");
-    button.classList.toggle("is-playing", active && speechState === "playing");
+    button.classList.toggle("is-playing", active && (speechState === "playing" || speechState === "loading"));
     button.setAttribute("aria-pressed", active ? "true" : "false");
-    if (!(active && speechState === "loading")) {
-      button.removeAttribute("aria-busy");
-    }
-    if (active && speechState === "playing") {
+    if (active && (speechState === "playing" || speechState === "loading")) {
       button.setAttribute("aria-label", "Stop reading");
-    } else if (active && speechState === "loading") {
-      button.setAttribute("aria-label", "Preparing audio");
-      button.setAttribute("aria-busy", "true");
+    } else if (active && speechState === "paused") {
+      button.setAttribute("aria-label", "Resume reading");
     } else {
       button.setAttribute("aria-label", "Listen to this article");
     }
+  });
+  document.querySelectorAll(".news-pause").forEach((button) => {
+    const playing = button.dataset.url === speechURL && speechState === "playing";
+    const paused = button.dataset.url === speechURL && speechState === "paused";
+    button.classList.toggle("is-shown", playing || paused);
+    button.classList.toggle("is-paused", paused);
+    button.tabIndex = playing || paused ? 0 : -1;
+    button.setAttribute("aria-label", paused ? "Resume reading" : "Pause reading");
   });
   document.querySelectorAll(".news-cancel").forEach((button) => {
     const loading = button.dataset.url === speechURL && speechState === "loading";

@@ -2,7 +2,9 @@
 
 Desktop card for which AI model to use for which job, and a short news feed.
 
-A narrow window on your tallest screen, tall enough for five jobs. The rest of the list scrolls. **Cheat sheet** lists each job in bold, the current best model under it, and one plain sentence about when to use it. Hover a row and the tooltip slides out to the right. **News feed** replaces that list with current reports about models and AI. Click a headline to open it. The sentences are meant to be readable without insider shorthand.
+The card stays 400 wide and 564 tall on both **Cheat sheet** and **News feed**. Anything past that scrolls. The first time it opens, it sits at the top left of your tallest screen. After you move it, it stays there, including after the computer sleeps. Switching views does not move the window or change its height. If the screen is shorter than the card, the card shrinks to fit.
+
+**Cheat sheet** lists each job in bold, the current best model under it, and one plain sentence about when to use it. Hover a row and the tooltip slides out to the right. **News feed** replaces that list with current reports about models and AI. Click a headline to open it. The sentences are meant to be readable without insider shorthand.
 
 ## Requirements
 
@@ -52,9 +54,13 @@ That write step needs an OpenRouter key in `~/.config/llm-cheat-sheet/openrouter
 
 The daily job is installed by `scripts/install-daily-news.sh`.
 
-The speaker at the right of a story reads that article aloud. Audio is made only when you click that speaker, through your ElevenLabs account. A second click on the same story stops it. Clicking it again later replays the saved audio and does not call ElevenLabs a second time. Playback continues while another app is in front, as long as this card is still open.
+The speaker at the right of a story reads that article aloud. Audio is made only when you click that speaker, through your ElevenLabs account. Clicking the speaker while it is playing stops it. Clicking it while it is paused starts it again. While the audio is being made, a circle with a slash appears beside the speaker and cancels that request. While it is playing, a pause button appears there and holds the playback. A later click on a story you have already heard replays the saved audio and does not call ElevenLabs again, unless the voice or the speed has changed. Playback continues while another app is in front, as long as this card is still open.
 
-Put the ElevenLabs key on one line in `~/.config/llm-cheat-sheet/elevenlabs.key`. Do not paste the key into the chat. A different voice can go on one line in `~/.config/llm-cheat-sheet/elevenlabs.voice`, using the voice id from the ElevenLabs voice list. If that file is missing, the card uses a standard reading voice. A long article plays about the first twenty minutes.
+On the News feed, a voice menu and a speed field sit to the right of the Cheat sheet / News feed switch. They are hidden on the cheat sheet. The menu lists your voices, shared voices, and standard voices, by name only. The speed runs from 0.7 to 1.2. The chosen voice is saved in `~/.config/llm-cheat-sheet/elevenlabs.voice`. The speed is saved in `~/.config/llm-cheat-sheet/elevenlabs.speed`.
+
+Put the ElevenLabs key on one line in `~/.config/llm-cheat-sheet/elevenlabs.key`, or in the `ELEVENLABS_API_KEY` environment variable. Do not paste the key into the chat. Speaking needs the Text to Speech permission. The voice menu also needs Voices read on that same key. If the menu cannot load, speaking still works with the saved voice. If no voice has been saved, the card uses a standard reading voice.
+
+Before it speaks, the card takes the article text from the page. The OpenAI model on the **Many short tasks** row then drops advertisements, subscription lines, related stories, and other page material, and keeps the article’s own wording. It does not add facts or shorten the story. That step needs an OpenAI key in `~/.config/llm-cheat-sheet/openai.key`, or in the `OPENAI_API_KEY` environment variable. Without that key, it reads the page text it gathered. A very long article is cut off after about 40,000 characters. This listening step is separate from the daily news sentences, which still use OpenRouter.
 
 ## Change the jobs
 
@@ -106,6 +112,7 @@ data/news.js              last news list (written daily)
 scripts/refresh.py
 scripts/news.py
 scripts/speak.py           reads one article aloud when its speaker is clicked
+scripts/voices.py          lists ElevenLabs voices for the News feed menu
 scripts/catch-up.py       runs news if it is stale, and the card if it is a week old
 scripts/install-weekly-refresh.sh
 scripts/install-daily-news.sh

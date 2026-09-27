@@ -19,11 +19,16 @@ DEFAULT_VOICE = "JBFqnCBsd6RMkjVDRZzb"
 MODEL_ID = "eleven_turbo_v2_5"
 SPEED_MIN = 0.7
 SPEED_MAX = 1.2
-TEXT_LIMIT = 20000
+TEXT_LIMIT = 40000
 CHUNK_LIMIT = 9000
 FETCH_TIMEOUT = 20
 SPEECH_TIMEOUT = 120
-SKIP_TAGS = {"script", "style", "nav", "footer", "header", "aside", "form", "noscript", "svg", "button", "iframe"}
+SKIP_TAGS = {"script", "style", "nav", "footer", "header", "form", "noscript", "svg", "button", "iframe"}
+VOID_TAGS = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"}
+COLLECT_TAGS = {"p", "li", "h2", "h3", "h4", "blockquote", "figcaption"}
+OPENAI_KEY_PATH = Path.home() / ".config" / "llm-cheat-sheet" / "openai.key"
+CHAT_URL = "https://api.openai.com/v1/chat/completions"
+CLEAN_ID = "listen-clean-3"
 
 
 def load_key():
@@ -52,6 +57,28 @@ def load_speed():
     return min(SPEED_MAX, max(SPEED_MIN, value))
 
 
+def load_openai_key():
+    env = os.environ.get("OPENAI_API_KEY", "").strip()
+    if env:
+        return env
+    try:
+        return OPENAI_KEY_PATH.read_text().strip()
+    except OSError:
+        return ""
+
+
+def cheap_model_id():
+    path = Path(__file__).resolve().parent.parent / "data" / "card-data.js"
+    try:
+        text = path.read_text()
+    except OSError:
+        return "gpt-6-luna"
+    match = re.search(r'"id": "high-volume-grunt-work".*?"modelId": "(openai/[^"]+)"', text, re.S)
+    if not match:
+        return "gpt-6-luna"
+    return match.group(1).split("/", 1)[1]
+
+
 def plain(value):
     return " ".join(html.unescape(value or "").split())
 
@@ -59,41 +86,53 @@ def plain(value):
 class ArticleParser(HTMLParser):
     def __init__(self):
         super().__init__(convert_charrefs=True)
-        self.skip_depth = 0
+        self.frames = []
         self.article_depth = 0
-        self.seen_article = False
-        self.in_p = False
+        self.block = None
+        self.block_depth = 0
         self.buf = []
         self.rows = []
 
+    def blocked(self):
+        return bool(self.frames) and self.frames[-1][0]
+
     def handle_starttag(self, tag, attrs):
         tag = tag.lower()
-        if tag in SKIP_TAGS:
-            self.skip_depth += 1
+        if tag in VOID_TAGS:
             return
-        if tag == "article":
+        blocked = self.blocked() or tag in SKIP_TAGS
+        counted = tag == "article" and not blocked
+        self.frames.append((blocked, counted))
+        if counted:
             self.article_depth += 1
-            self.seen_article = True
-        if tag == "p" and self.skip_depth == 0:
-            self.in_p = True
+        if self.block == tag:
+            self.block_depth += 1
+        elif self.block is None and tag in COLLECT_TAGS and not blocked:
+            self.block = tag
+            self.block_depth = 1
             self.buf = []
 
     def handle_endtag(self, tag):
         tag = tag.lower()
-        if tag in SKIP_TAGS and self.skip_depth:
-            self.skip_depth = max(0, self.skip_depth - 1)
+        if tag in VOID_TAGS:
             return
-        if tag == "article" and self.article_depth:
+        in_article = self.article_depth > 0
+        if self.block == tag:
+            self.block_depth -= 1
+            if self.block_depth <= 0:
+                text = plain("".join(self.buf))
+                if len(text) >= 8:
+                    self.rows.append((in_article, text))
+                self.block = None
+                self.buf = []
+        counted = False
+        if self.frames:
+            _, counted = self.frames.pop()
+        if counted and self.article_depth:
             self.article_depth -= 1
-        if tag == "p" and self.in_p:
-            text = plain("".join(self.buf))
-            if len(text) >= 80:
-                self.rows.append((self.article_depth > 0, text))
-            self.in_p = False
-            self.buf = []
 
     def handle_data(self, data):
-        if self.skip_depth == 0 and self.in_p:
+        if self.block and not self.blocked():
             self.buf.append(data)
 
 
@@ -104,10 +143,11 @@ def article_text(page):
         parser.close()
     except Exception:
         return ""
-    rows = [text for inside, text in parser.rows if inside] if parser.seen_article else []
-    if len(rows) < 2:
-        rows = [text for _, text in parser.rows]
-    return "\n\n".join(rows)
+    inside = [text for is_inside, text in parser.rows if is_inside]
+    inside_text = "\n\n".join(inside)
+    if len(inside_text) >= 200:
+        return inside_text
+    return "\n\n".join(text for _, text in parser.rows)
 
 
 def fetch_page(url):
@@ -135,12 +175,83 @@ def clip(text):
     return cut.strip()
 
 
+def paragraphs(value):
+    text = html.unescape(str(value or "")).replace("\r\n", "\n").replace("\r", "\n")
+    blocks = [" ".join(line.split()) for line in re.split(r"\n+", text)]
+    return "\n\n".join(block for block in blocks if block)
+
+
+def polish_for_listening(title, detail, body):
+    key = load_openai_key()
+    if not key or len(body) < 80:
+        return body
+    payload = {
+        "model": cheap_model_id(),
+        "max_completion_tokens": 16000,
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "You prepare one news article so it can be read aloud. "
+                    "The page text includes the article and leftover page material. "
+                    "Keep every paragraph that belongs to the article, from the beginning of the story through the end. "
+                    "Delete advertisements, subscription offers, related stories, share prompts, author biographies, and sentences about the website itself. "
+                    "Keep the article's own wording. Do not add facts, names, or numbers. Do not summarize. Do not shorten the article. Do not repeat the title. "
+                    "If you are unsure whether a sentence belongs to the article, keep it. "
+                    "Return plain paragraphs only."
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"Title: {plain(title)}\n\n"
+                    f"Publication sentence: {plain(detail)}\n\n"
+                    f"Page text:\n{body[:TEXT_LIMIT]}"
+                ),
+            },
+        ],
+    }
+    request = urllib.request.Request(
+        CHAT_URL,
+        data=json.dumps(payload).encode(),
+        headers={
+            "Authorization": f"Bearer {key}",
+            "Content-Type": "application/json",
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=120) as response:
+            raw = response.read()
+    except (OSError, urllib.error.URLError, TimeoutError):
+        return body
+    try:
+        message = json.loads(raw)["choices"][0]["message"]
+        content = message.get("content")
+    except (KeyError, IndexError, TypeError, json.JSONDecodeError):
+        return body
+    if message.get("refusal") or not content:
+        return body
+    if isinstance(content, list):
+        content = "\n".join(
+            part.get("text", "") if isinstance(part, dict) else str(part) for part in content
+        )
+    text = paragraphs(content)
+    text = re.sub(r"^(here is|cleaned article|article text)\b[:\s-]*", "", text, flags=re.I).strip()
+    if len(text) < 40 or len(text) > len(body) + 400:
+        return body
+    if re.match(r"(?i)^i(?:'m| am) sorry\b|^as an ai\b", text):
+        return body
+    return text
+
+
 def spoken_text(url, title, detail):
     body = ""
     try:
         body = article_text(fetch_page(url))
     except (OSError, urllib.error.URLError, ValueError):
         body = ""
+    if body:
+        body = polish_for_listening(title, detail, body)
     parts = [plain(title)]
     if body:
         parts.append(body)
@@ -205,7 +316,7 @@ def synthesize(text, key, voice, speed):
 
 
 def cache_path(url, voice, speed):
-    digest = hashlib.sha256(f"{voice}\n{MODEL_ID}\n{speed:.1f}\n{url}".encode()).hexdigest()
+    digest = hashlib.sha256(f"{voice}\n{MODEL_ID}\n{speed:.1f}\n{CLEAN_ID}\n{url}".encode()).hexdigest()
     return CACHE_DIR / f"{digest}.mp3"
 
 

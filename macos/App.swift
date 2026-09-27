@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
     private var tipOpen = false
     private var restContentWidth: CGFloat = 400
     private let cardWidth: CGFloat = 400
+    private let cardHeight: CGFloat = 564
     private let tipExtra: CGFloat = 336
     private var watchSource: DispatchSourceFileSystemObject?
     private var watchFD: Int32 = -1
@@ -19,6 +20,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
     private var speechGeneration = 0
     private var speechURL = ""
     private var voicesLoading = false
+    private var savedOrigin: NSPoint?
+    private var suppressFrameSave = false
+    private var frameRestoreWork: DispatchWorkItem?
+    private let frameOriginKey = "LLMWallCardOrigin"
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let bundle = URL(fileURLWithPath: Bundle.main.bundlePath).resolvingSymlinksInPath()
@@ -30,14 +35,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         controller.add(self, name: "card")
         let config = WKWebViewConfiguration()
         config.userContentController = controller
-        let webView = WKWebView(frame: NSRect(x: 0, y: 0, width: 400, height: 560), configuration: config)
+        let webView = WKWebView(frame: NSRect(x: 0, y: 0, width: 400, height: 564), configuration: config)
         webView.underPageBackgroundColor = background
         webView.allowsMagnification = false
         webView.navigationDelegate = self
         self.webView = webView
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 400, height: 560),
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 564),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
@@ -52,7 +57,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         window.backgroundColor = background
         self.window = window
 
-        placeOnTallestScreen()
+        if let origin = loadOrigin(), frameFits(origin) {
+            var frame = window.frame
+            frame.origin = origin
+            window.setFrame(frame, display: true)
+            savedOrigin = origin
+        } else {
+            placeOnTallestScreen()
+        }
+        rememberFrame()
+        watchScreenChanges()
 
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -79,7 +93,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
     private func placeOnTallestScreen() {
         guard let screen = tallestScreen() else { return }
         let visible = screen.visibleFrame
-        let fitted = window.frameRect(forContentRect: NSRect(x: 0, y: 0, width: cardWidth, height: min(560, visible.height)))
+        let fitted = window.frameRect(forContentRect: NSRect(x: 0, y: 0, width: cardWidth, height: min(cardHeight, visible.height)))
         let frame = NSRect(
             x: visible.minX,
             y: visible.maxY - fitted.height,
@@ -95,13 +109,105 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         guard let screen else { return }
         let visible = screen.visibleFrame
         let width = tipOpen ? window.contentRect(forFrameRect: window.frame).width : cardWidth
-        var height = contentHeight
+        var height = cardHeight
         let frame = window.frameRect(forContentRect: NSRect(x: 0, y: 0, width: width, height: height))
         if frame.height > visible.height {
             let chrome = frame.height - height
             height = max(200, visible.height - chrome)
         }
         window.setContentSize(NSSize(width: width, height: height))
+        rememberFrameIfStable()
+    }
+
+    private func watchScreenChanges() {
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(screensChanged),
+            name: NSWorkspace.didWakeNotification,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(screensChanged),
+            name: NSApplication.didChangeScreenParametersNotification,
+            object: nil
+        )
+    }
+
+    @objc private func screensChanged() {
+        scheduleFrameRestore(attempt: 0)
+    }
+
+    private func scheduleFrameRestore(attempt: Int) {
+        frameRestoreWork?.cancel()
+        let delays = [0.35, 1.0, 2.5]
+        guard attempt < delays.count else { return }
+        let work = DispatchWorkItem { [weak self] in
+            self?.restoreSavedFrameIfPossible()
+            self?.scheduleFrameRestore(attempt: attempt + 1)
+        }
+        frameRestoreWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + delays[attempt], execute: work)
+    }
+
+    private func loadOrigin() -> NSPoint? {
+        guard let values = UserDefaults.standard.array(forKey: frameOriginKey) as? [Double], values.count == 2 else {
+            return nil
+        }
+        return NSPoint(x: values[0], y: values[1])
+    }
+
+    private func frameFits(_ origin: NSPoint) -> Bool {
+        let rect = NSRect(origin: origin, size: window.frame.size)
+        return NSScreen.screens.contains { $0.frame.intersects(rect.insetBy(dx: 8, dy: 8)) }
+    }
+
+    private func rememberFrame() {
+        guard !suppressFrameSave else { return }
+        let frame = window.frame
+        guard frame.width > 40, frame.height > 40 else { return }
+        savedOrigin = frame.origin
+        UserDefaults.standard.set([Double(frame.origin.x), Double(frame.origin.y)], forKey: frameOriginKey)
+    }
+
+    private func rememberFrameIfStable() {
+        if let saved = savedOrigin, abs(window.frame.origin.x - saved.x) > 30 {
+            return
+        }
+        rememberFrame()
+    }
+
+    private func userIsMovingWindow() -> Bool {
+        guard let type = NSApp.currentEvent?.type else { return false }
+        switch type {
+        case .leftMouseDragged, .leftMouseUp, .leftMouseDown:
+            return true
+        default:
+            return false
+        }
+    }
+
+    func windowDidMove(_ notification: Notification) {
+        guard !suppressFrameSave, userIsMovingWindow() else { return }
+        rememberFrame()
+    }
+
+    func windowDidEndLiveResize(_ notification: Notification) {
+        rememberFrame()
+    }
+
+    private func restoreSavedFrameIfPossible() {
+        guard let saved = savedOrigin ?? loadOrigin() else { return }
+        guard frameFits(saved) else { return }
+        let current = window.frame.origin
+        if abs(current.x - saved.x) < 2, abs(current.y - saved.y) < 2 {
+            return
+        }
+        suppressFrameSave = true
+        var frame = window.frame
+        frame.origin = saved
+        window.setFrame(frame, display: true)
+        suppressFrameSave = false
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -143,6 +249,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
             }
             if let url = body["cancel"] as? String {
                 self.cancelSpeech(url: url)
+            }
+            if let url = body["pause"] as? String {
+                self.pauseSpeech(url: url)
             }
             if (body["voices"] as? Bool) == true || (body["voices"] as? NSNumber)?.boolValue == true {
                 self.loadVoices()
@@ -273,16 +382,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
             content.size.width = max(restContentWidth, cardWidth + tipExtra)
             window.setFrame(window.frameRect(forContentRect: content), display: true)
             tipOpen = true
+            rememberFrameIfStable()
         } else if !open && tipOpen {
             content.size.width = restContentWidth
             window.setFrame(window.frameRect(forContentRect: content), display: true)
             tipOpen = false
+            rememberFrameIfStable()
         }
     }
 
     private func toggleSpeech(url: String, title: String, detail: String) {
-        if speechURL == url && (speechPlayer?.isPlaying == true || speechTask != nil) {
+        if speechURL == url && speechTask != nil {
             stopSpeech()
+            return
+        }
+        if speechURL == url, let player = speechPlayer {
+            if player.isPlaying {
+                stopSpeech()
+            } else {
+                player.play()
+                reportSpeech(url: url, state: "playing", message: "")
+            }
             return
         }
         stopSpeech()
@@ -363,6 +483,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
     private func cancelSpeech(url: String) {
         guard speechURL == url, speechTask != nil else { return }
         stopSpeech()
+    }
+
+    private func pauseSpeech(url: String) {
+        guard speechURL == url, let player = speechPlayer else { return }
+        if player.isPlaying {
+            player.pause()
+            reportSpeech(url: url, state: "paused", message: "")
+        } else {
+            player.play()
+            reportSpeech(url: url, state: "playing", message: "")
+        }
     }
 
     private func playSpeech(path: String, url: String) {

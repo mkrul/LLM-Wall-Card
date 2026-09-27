@@ -62,6 +62,11 @@ header {
   cursor: pointer;
 }
 
+#voice[hidden],
+#speed[hidden] {
+  display: none;
+}
+
 #speed {
   flex: none;
   width: 48px;
@@ -213,9 +218,19 @@ h1 {
   flex: none;
   align-items: flex-start;
   gap: 2px;
+  width: 46px;
+}
+
+.news-extra {
+  position: relative;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
 }
 
 .news-speak,
+.news-pause,
 .news-cancel {
   flex: none;
   width: 22px;
@@ -229,6 +244,7 @@ h1 {
 }
 
 .news-speak svg,
+.news-pause svg,
 .news-cancel svg {
   display: block;
   width: 16px;
@@ -236,49 +252,34 @@ h1 {
   margin: 3px;
 }
 
+.news-pause,
 .news-cancel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  margin-top: 0;
   display: none;
 }
 
+.news-pause.is-shown,
 .news-cancel.is-shown {
+  display: block;
+}
+
+.news-pause .is-resume {
+  display: none;
+}
+
+.news-pause.is-paused .is-pause {
+  display: none;
+}
+
+.news-pause.is-paused .is-resume {
   display: block;
 }
 
 .news-speak.is-playing {
   color: #f2f0ea;
-}
-
-.news-spinner {
-  display: none;
-  box-sizing: border-box;
-  width: 12px;
-  height: 12px;
-  margin: 5px;
-  border: 2px solid rgba(196, 165, 116, 0.35);
-  border-top-color: #c4a574;
-  border-radius: 50%;
-  animation: news-spin 0.7s linear infinite;
-}
-
-.news-speak.is-loading svg {
-  display: none;
-}
-
-.news-speak.is-loading .news-spinner {
-  display: block;
-}
-
-@keyframes news-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .news-speak.is-loading .news-spinner {
-    animation: none;
-    border-color: #c4a574;
-  }
 }
 
 .news-title {
