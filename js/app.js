@@ -273,6 +273,11 @@ function renderNews(news) {
     source.className = "news-source";
     source.textContent = item.source || "";
     copy.appendChild(source);
+    const status = document.createElement("div");
+    status.className = "news-status";
+    status.dataset.url = item.url || "";
+    status.hidden = true;
+    copy.appendChild(status);
     li.appendChild(copy);
     if (item.url) {
       const actions = document.createElement("div");
@@ -311,7 +316,20 @@ function renderNews(news) {
       const extra = document.createElement("div");
       extra.className = "news-extra";
       extra.append(pause, cancel);
-      actions.append(button, extra);
+      const controls = document.createElement("div");
+      controls.className = "news-controls";
+      controls.append(button, extra);
+      const progress = document.createElement("div");
+      progress.className = "news-progress";
+      progress.dataset.url = item.url;
+      progress.hidden = true;
+      progress.setAttribute("role", "progressbar");
+      progress.setAttribute("aria-valuemin", "0");
+      progress.setAttribute("aria-valuemax", "100");
+      progress.setAttribute("aria-valuenow", "0");
+      progress.setAttribute("aria-label", "Playback position");
+      progress.appendChild(document.createElement("span"));
+      actions.append(controls, progress);
       li.appendChild(actions);
       li.addEventListener("click", () => openLink(item.url));
     }
@@ -323,6 +341,7 @@ function renderNews(news) {
 
 let speechURL = "";
 let speechState = "idle";
+let speechProgress = 0;
 
 function speakerIcon() {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -402,6 +421,10 @@ function toggleSpeech(item) {
     window.setSpeechState(item.url, "idle", "Listening runs in the LLM Wall Card app.");
     return;
   }
+  const same = speechURL === item.url;
+  if (!same || speechState === "idle") {
+    window.setSpeechState(item.url, "loading", "");
+  }
   handler.postMessage({
     speak: {
       url: item.url,
@@ -438,6 +461,9 @@ function cancelSpeech(item) {
 window.setSpeechState = function (url, state, message) {
   speechURL = state === "idle" ? "" : url;
   speechState = state;
+  if (state === "idle" || state === "loading") {
+    speechProgress = 0;
+  }
   const note = document.getElementById("news-speak-note");
   if (note) {
     note.textContent = message || "";
@@ -448,15 +474,29 @@ window.setSpeechState = function (url, state, message) {
 function paintSpeech() {
   document.querySelectorAll(".news-speak").forEach((button) => {
     const active = button.dataset.url === speechURL && speechState !== "idle";
-    button.classList.toggle("is-playing", active && (speechState === "playing" || speechState === "loading"));
+    const loading = active && speechState === "loading";
+    button.classList.toggle("is-playing", active && speechState === "playing");
+    button.classList.toggle("is-loading", loading);
+    button.setAttribute("aria-busy", loading ? "true" : "false");
     button.setAttribute("aria-pressed", active ? "true" : "false");
-    if (active && (speechState === "playing" || speechState === "loading")) {
+    if (loading) {
+      button.setAttribute("aria-label", "Preparing the audio");
+      button.title = "Preparing the audio";
+    } else if (active && speechState === "playing") {
+      button.removeAttribute("title");
       button.setAttribute("aria-label", "Stop reading");
     } else if (active && speechState === "paused") {
+      button.removeAttribute("title");
       button.setAttribute("aria-label", "Resume reading");
     } else {
+      button.removeAttribute("title");
       button.setAttribute("aria-label", "Listen to this article");
     }
+  });
+  document.querySelectorAll(".news-status").forEach((status) => {
+    const loading = status.dataset.url === speechURL && speechState === "loading";
+    status.hidden = !loading;
+    status.textContent = loading ? "Preparing the audio." : "";
   });
   document.querySelectorAll(".news-pause").forEach((button) => {
     const playing = button.dataset.url === speechURL && speechState === "playing";
@@ -470,6 +510,33 @@ function paintSpeech() {
     const loading = button.dataset.url === speechURL && speechState === "loading";
     button.classList.toggle("is-shown", loading);
     button.tabIndex = loading ? 0 : -1;
+  });
+  paintProgress();
+}
+
+window.setSpeechProgress = function (url, fraction) {
+  if (url !== speechURL) {
+    return;
+  }
+  const value = Number(fraction);
+  if (!Number.isFinite(value)) {
+    return;
+  }
+  speechProgress = Math.min(1, Math.max(0, value));
+  paintProgress();
+};
+
+function paintProgress() {
+  const listening = speechState === "playing" || speechState === "paused";
+  document.querySelectorAll(".news-progress").forEach((bar) => {
+    const active = listening && bar.dataset.url === speechURL;
+    bar.hidden = !active;
+    const percent = active ? Math.round(speechProgress * 1000) / 10 : 0;
+    bar.setAttribute("aria-valuenow", String(Math.round(percent)));
+    const fill = bar.firstElementChild;
+    if (fill) {
+      fill.style.width = `${percent}%`;
+    }
   });
 }
 

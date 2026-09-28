@@ -17,6 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
     private var reloadWork: DispatchWorkItem?
     private var speechPlayer: AVAudioPlayer?
     private var speechTask: Process?
+    private var progressTimer: Timer?
     private var speechGeneration = 0
     private var speechURL = ""
     private var voicesLoading = false
@@ -464,6 +465,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
             } else {
                 player.play()
                 reportSpeech(url: url, state: "playing", message: "")
+                startProgressUpdates()
             }
             return
         }
@@ -549,13 +551,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
 
     private func pauseSpeech(url: String) {
         guard speechURL == url, let player = speechPlayer else { return }
-        if player.isPlaying {
-            player.pause()
-            reportSpeech(url: url, state: "paused", message: "")
-        } else {
-            player.play()
-            reportSpeech(url: url, state: "playing", message: "")
-        }
+            if player.isPlaying {
+                player.pause()
+                reportProgress()
+                stopProgressUpdates()
+                reportSpeech(url: url, state: "paused", message: "")
+            } else {
+                player.play()
+                reportSpeech(url: url, state: "playing", message: "")
+                startProgressUpdates()
+            }
     }
 
     private func playSpeech(path: String, url: String) {
@@ -565,6 +570,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
             speechPlayer = player
             player.play()
             reportSpeech(url: url, state: "playing", message: "")
+            startProgressUpdates()
         } catch {
             speechURL = ""
             reportSpeech(url: url, state: "idle", message: "Could not play that article.")
@@ -576,10 +582,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         let url = speechURL
         speechPlayer = nil
         speechURL = ""
+        stopProgressUpdates()
         reportSpeech(url: url, state: "idle", message: "")
     }
 
     private func stopSpeech() {
+        stopProgressUpdates()
         speechGeneration += 1
         speechTask?.terminate()
         speechTask = nil
@@ -590,6 +598,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         if !url.isEmpty {
             reportSpeech(url: url, state: "idle", message: "")
         }
+    }
+
+    private func startProgressUpdates() {
+        progressTimer?.invalidate()
+        let timer = Timer(timeInterval: 0.25, repeats: true) { [weak self] _ in
+            self?.reportProgress()
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        progressTimer = timer
+        reportProgress()
+    }
+
+    private func stopProgressUpdates() {
+        progressTimer?.invalidate()
+        progressTimer = nil
+    }
+
+    private func reportProgress() {
+        guard let player = speechPlayer, !speechURL.isEmpty else { return }
+        let duration = player.duration
+        let fraction = duration > 0 ? min(1, max(0, player.currentTime / duration)) : 0
+        let js = "window.setSpeechProgress(\(jsString(speechURL)), \(fraction))"
+        webView.evaluateJavaScript(js, completionHandler: nil)
     }
 
     private func reportSpeech(url: String, state: String, message: String) {

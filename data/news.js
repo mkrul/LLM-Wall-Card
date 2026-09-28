@@ -1,5 +1,5 @@
 window.NEWS = {
-  "updatedAt": "2026-09-27T07:41:29-04:00",
+  "updatedAt": "2026-09-28T04:55:35-04:00",
   "model": "",
   "modelId": "",
   "items": [
@@ -11,18 +11,18 @@ window.NEWS = {
       "published": "2026-09-25T18:20:47-04:00"
     },
     {
-      "title": "Gemini 3.8 Live with Live Avatar gives Google\u2019s AI a face",
-      "detail": "Google's new Gemini 3.8 Live update lets users have conversations with the model while watching an animated AI persona respond in real time.",
-      "source": "The Verge",
-      "url": "https://www.theverge.com/tech/1000328/google-gemini-ai-live-avatar-face",
-      "published": "2026-09-24T15:59:26-04:00"
+      "title": "Who\u2019s liable when AI agents go rogue?",
+      "detail": "MIT Technology Review Explains: Let our writers untangle the complex, messy world of technology to help you understand what\u2019s coming next.",
+      "source": "MIT Technology Review",
+      "url": "https://www.technologyreview.com/2026/09/28/1145197/whos-liable-when-ai-agents-go-rogue/",
+      "published": "2026-09-28T04:06:22-04:00"
     },
     {
-      "title": "Anthropic\u2019s founders seek voting control ahead of IPO",
-      "detail": "Anthropic is asking its shareholders to approve a structure that would give its seven co-founders a combined 50.1% of the vote on most corporate matters.",
-      "source": "TechCrunch",
-      "url": "https://techcrunch.com/2026/09/25/anthropics-founders-seek-voting-control-ahead-of-ipo/",
-      "published": "2026-09-25T11:40:03-04:00"
+      "title": "OpenAI agents tried to \u2018bruteforce\u2019 a UN website",
+      "detail": "Security researcher Rowan Howard-Jones says that OpenAI agents scanned the UN Conference on Trade and Development's (UNCTAD) statistics site over 16,000 times.",
+      "source": "The Verge",
+      "url": "https://www.theverge.com/ai-artificial-intelligence/1001178/openai-agents-bruteforce-un-website",
+      "published": "2026-09-27T13:21:07-04:00"
     },
     {
       "title": "Google tests buying from Walmart-owned Flipkart through Gemini and AI Mode in India",
