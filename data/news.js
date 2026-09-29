@@ -1,8 +1,22 @@
 window.NEWS = {
-  "updatedAt": "2026-09-29T06:17:04-04:00",
+  "updatedAt": "2026-09-29T13:24:33-04:00",
   "model": "",
   "modelId": "",
   "items": [
+    {
+      "title": "OpenAI launches GPT-6.1 Sol, says it nearly matches GPT-6 Astra and costs less",
+      "detail": "OpenAI says GPT-6.1 Sol delivers significant improvements over GPT-6 Sol across complex professional tasks.",
+      "source": "TechCrunch",
+      "url": "https://techcrunch.com/2026/09/29/openai-launches-gpt-6-1-sol-says-it-nearly-matches-gpt-6-astra-and-costs-less/",
+      "published": "2026-09-29T13:15:00-04:00"
+    },
+    {
+      "title": "Anthropic warns of \u2018catastrophic\u2019 AI risks in its own IPO filing",
+      "detail": "As Anthropic gears up for its greatly anticipated public debut.",
+      "source": "The Verge",
+      "url": "https://www.theverge.com/ai-artificial-intelligence/1001838/anthropic-ipo-prospectus-ai-safety-threat",
+      "published": "2026-09-29T07:48:27-04:00"
+    },
     {
       "title": "Florida seeks a ban on ChatGPT acting like a person",
       "detail": "Florida Attorney General James Uthmeier is calling for a judge to block OpenAI from \"giving ChatGPT false human attributes,\" a few months after Florida sued.",
@@ -11,32 +25,18 @@ window.NEWS = {
       "published": "2026-09-28T13:00:23-04:00"
     },
     {
-      "title": "Anthropic\u2019s prospectus details losses, growth, and, yes, a warning that its AI could end humanity",
-      "detail": "In its prospectus, Anthropic just told investors it's losing tens of billions of dollars a year, but also growing like crazy, and \u2014 oh yeah \u2014 its own AI might.",
-      "source": "TechCrunch",
-      "url": "https://techcrunch.com/2026/09/28/anthropics-prospectus-details-losses-growth-and-yes-a-warning-that-its-ai-could-end-humanity/",
-      "published": "2026-09-29T01:13:43-04:00"
-    },
-    {
-      "title": "OpenAI reportedly ditches model over safety concerns",
-      "detail": "A top executive at the AI lab told the Wall Street Journal that the model in question had displayed a poor aptitude for following orders.",
-      "source": "TechCrunch",
-      "url": "https://techcrunch.com/2026/09/28/openai-reportedly-ditches-model-over-safety-concerns/",
-      "published": "2026-09-28T19:39:20-04:00"
-    },
-    {
-      "title": "Claude Sonnet 5.5",
-      "detail": "New Sonnet model from Anthropic today. They say it \"runs 30%+ faster.",
+      "title": "OpenAI DevDay 2026 live blog",
+      "detail": "I'm at OpenAI DevDay today, in Fort Mason, San Francisco.",
       "source": "Simon Willison",
-      "url": "https://simonwillison.net/2026/Sep/28/claude-sonnet-5-5/",
-      "published": "2026-09-28T18:07:38-04:00"
+      "url": "https://simonwillison.net/2026/Sep/29/openai-devday-2026-live-blog/",
+      "published": "2026-09-29T11:55:13-04:00"
     },
     {
-      "title": "Hallo, Deutschland!",
-      "detail": "Mistral opens a Munich hub for Physics AI and Industrial AI research, partnering with German industry.",
-      "source": "Mistral",
-      "url": "https://mistral.ai/news/hallo-deutschland/",
-      "published": "2026-09-28T11:57:59-04:00"
+      "title": "Language Models for Text Classification: From Bag-of-Words to Jev",
+      "detail": "A Visual Guide to RNNs, CNNs, Transformers, and Calibration, with Hands-On Experiments on Accuracy and Efficiency",
+      "source": "Ahead of AI",
+      "url": "https://magazine.sebastianraschka.com/p/classifier-history-and-jev",
+      "published": "2026-09-29T06:50:25-04:00"
     }
   ]
 };
