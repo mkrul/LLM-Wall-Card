@@ -8,8 +8,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
     private var webView: WKWebView!
     private var projectRoot: URL!
     private var tipOpen = false
-    private var restContentWidth: CGFloat = 400
-    private let cardWidth: CGFloat = 400
+    private var restContentWidth: CGFloat = 500
+    private let cardWidth: CGFloat = 500
     private let cardHeight: CGFloat = 564
     private let tipExtra: CGFloat = 336
     private var watchSource: DispatchSourceFileSystemObject?
@@ -37,21 +37,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         controller.add(self, name: "card")
         let config = WKWebViewConfiguration()
         config.userContentController = controller
-        let webView = WKWebView(frame: NSRect(x: 0, y: 0, width: 400, height: 564), configuration: config)
+        let webView = WKWebView(frame: NSRect(x: 0, y: 0, width: cardWidth, height: cardHeight), configuration: config)
         webView.underPageBackgroundColor = background
         webView.allowsMagnification = false
         webView.navigationDelegate = self
         self.webView = webView
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 400, height: 564),
+            contentRect: NSRect(x: 0, y: 0, width: cardWidth, height: cardHeight),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
         window.title = "LLM Wall Card"
         window.contentView = webView
-        window.minSize = NSSize(width: 400, height: 480)
+        window.minSize = NSSize(width: cardWidth, height: 480)
         window.delegate = self
         window.isReleasedWhenClosed = false
         window.tabbingMode = .disallowed
@@ -255,6 +255,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
             if let url = body["pause"] as? String {
                 self.pauseSpeech(url: url)
             }
+            if let seek = body["seek"] as? [String: Any],
+               let url = seek["url"] as? String,
+               let fraction = (seek["fraction"] as? NSNumber)?.doubleValue {
+                self.seekSpeech(url: url, fraction: fraction)
+            }
             if (body["voices"] as? Bool) == true || (body["voices"] as? NSNumber)?.boolValue == true {
                 self.loadVoices()
             }
@@ -347,7 +352,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         if refreshRunning {
             return
         }
-        let name = which == "news" ? "news.py" : "refresh.py"
+        let name: String
+        if which == "news" {
+            name = "news.py"
+        } else if which == "benchmarks" {
+            name = "benchmarks.py"
+        } else {
+            name = "refresh.py"
+        }
         let root = projectRoot!
         let script = root.appendingPathComponent("scripts").appendingPathComponent(name)
         guard FileManager.default.fileExists(atPath: script.path) else {
@@ -426,10 +438,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
     private func scheduleReload() {
         reloadWork?.cancel()
         let work = DispatchWorkItem { [weak self] in
-            self?.webView.reload()
+            self?.reloadFromDisk()
         }
         reloadWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6, execute: work)
+    }
+
+    private func reloadFromDisk() {
+        let types: Set<String> = [
+            WKWebsiteDataTypeDiskCache,
+            WKWebsiteDataTypeMemoryCache,
+            WKWebsiteDataTypeFetchCache
+        ]
+        WKWebsiteDataStore.default().removeData(ofTypes: types, modifiedSince: Date.distantPast) { [weak self] in
+            DispatchQueue.main.async {
+                self?.webView.reloadFromOrigin()
+            }
+        }
     }
 
     private func setTipOpen(_ open: Bool) {
@@ -547,6 +572,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
     private func cancelSpeech(url: String) {
         guard speechURL == url, speechTask != nil else { return }
         stopSpeech()
+    }
+
+    private func seekSpeech(url: String, fraction: Double) {
+        guard speechURL == url, let player = speechPlayer else { return }
+        let duration = player.duration
+        guard duration.isFinite, duration > 0 else { return }
+        let clamped = min(1, max(0, fraction))
+        player.currentTime = duration * clamped
+        reportProgress()
     }
 
     private func pauseSpeech(url: String) {

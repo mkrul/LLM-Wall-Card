@@ -8,8 +8,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 NEWS_PATH = ROOT / "data" / "news.js"
 CARD_PATH = ROOT / "data" / "card-data.js"
+BENCH_PATH = ROOT / "data" / "benchmarks.js"
 NEWS_HOURS = 20
 CARD_HOURS = 24 * 7
+BENCH_HOURS = 24
 
 
 def age_hours(path):
@@ -37,6 +39,9 @@ def main():
     card_age = age_hours(CARD_PATH)
     if card_age is None or card_age >= CARD_HOURS:
         run("refresh.py")
+    bench_age = age_hours(BENCH_PATH)
+    if bench_age is None or bench_age >= BENCH_HOURS:
+        run("benchmarks.py")
 
 
 if __name__ == "__main__":

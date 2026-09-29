@@ -15,10 +15,14 @@ let view = "sheet";
 
 function readView() {
   try {
-    return localStorage.getItem(VIEW_KEY) === "news" ? "news" : "sheet";
+    const stored = localStorage.getItem(VIEW_KEY);
+    if (stored === "news" || stored === "benchmarks") {
+      return stored;
+    }
   } catch (error) {
     return "sheet";
   }
+  return "sheet";
 }
 
 function writeView(next) {
@@ -30,14 +34,16 @@ function writeView(next) {
 }
 
 function setToggle(next) {
-  const sheetButton = document.getElementById("view-sheet");
-  const newsButton = document.getElementById("view-news");
-  if (sheetButton) {
-    sheetButton.setAttribute("aria-pressed", next === "sheet" ? "true" : "false");
-  }
-  if (newsButton) {
-    newsButton.setAttribute("aria-pressed", next === "news" ? "true" : "false");
-  }
+  [
+    ["view-sheet", "sheet"],
+    ["view-benchmarks", "benchmarks"],
+    ["view-news", "news"]
+  ].forEach(([id, name]) => {
+    const button = document.getElementById(id);
+    if (button) {
+      button.setAttribute("aria-pressed", next === name ? "true" : "false");
+    }
+  });
 }
 
 function showStamp() {
@@ -49,6 +55,12 @@ function showStamp() {
   if (view === "news") {
     updatedAt.textContent = window.NEWS && window.NEWS.updatedAt
       ? `Last updated: ${formatUpdatedAt(window.NEWS.updatedAt)}`
+      : "";
+    return;
+  }
+  if (view === "benchmarks") {
+    updatedAt.textContent = window.BENCHMARKS && window.BENCHMARKS.updatedAt
+      ? `Last updated: ${formatUpdatedAt(window.BENCHMARKS.updatedAt)}`
       : "";
     return;
   }
@@ -65,20 +77,24 @@ function showStamp() {
 function applyView() {
   const jobsEl = document.getElementById("jobs");
   const news = document.getElementById("news");
-  const sheet = view !== "news";
+  const benchmarks = document.getElementById("benchmarks");
+  const onNews = view === "news";
   if (jobsEl) {
-    jobsEl.hidden = !sheet;
+    jobsEl.hidden = view !== "sheet";
+  }
+  if (benchmarks) {
+    benchmarks.hidden = view !== "benchmarks";
   }
   if (news) {
-    news.hidden = sheet;
+    news.hidden = !onNews;
   }
   const voice = document.getElementById("voice");
   const speed = document.getElementById("speed");
   if (voice) {
-    voice.hidden = sheet;
+    voice.hidden = !onNews;
   }
   if (speed) {
-    speed.hidden = sheet;
+    speed.hidden = !onNews;
   }
   setToggle(view);
   showStamp();
@@ -89,7 +105,23 @@ function applyView() {
 }
 
 function refreshLabel() {
-  return view === "news" ? "Refresh the news feed" : "Refresh the cheat sheet";
+  if (view === "news") {
+    return "Refresh the news feed";
+  }
+  if (view === "benchmarks") {
+    return "Refresh the benchmarks";
+  }
+  return "Refresh the cheat sheet";
+}
+
+function refreshKind() {
+  if (view === "news") {
+    return "news";
+  }
+  if (view === "benchmarks") {
+    return "benchmarks";
+  }
+  return "sheet";
 }
 
 function refreshCurrent() {
@@ -103,7 +135,7 @@ function refreshCurrent() {
     return;
   }
   window.setRefreshState("busy", "");
-  handler.postMessage({ refresh: view === "news" ? "news" : "sheet" });
+  handler.postMessage({ refresh: refreshKind() });
 }
 
 let newsRefreshing = false;
@@ -112,7 +144,7 @@ window.setRefreshState = function (state, message) {
   const button = document.getElementById("refresh");
   const updatedAt = document.getElementById("updated-at");
   const busy = state === "busy";
-  newsRefreshing = busy && view === "news";
+  newsRefreshing = busy && (view === "news" || view === "benchmarks");
   paintNewsRefresh();
   if (button) {
     button.disabled = busy;
@@ -138,8 +170,12 @@ window.setRefreshState = function (state, message) {
 
 function paintNewsRefresh() {
   const news = document.getElementById("news");
+  const benchmarks = document.getElementById("benchmarks");
   if (news) {
-    news.classList.toggle("is-refreshing", newsRefreshing);
+    news.classList.toggle("is-refreshing", newsRefreshing && view === "news");
+  }
+  if (benchmarks) {
+    benchmarks.classList.toggle("is-refreshing", newsRefreshing && view === "benchmarks");
   }
   document.querySelectorAll("#news-list button").forEach((button) => {
     button.disabled = newsRefreshing;
@@ -194,7 +230,7 @@ function renderCard(card) {
 }
 
 function chooseView(next) {
-  view = next === "news" ? "news" : "sheet";
+  view = next === "news" || next === "benchmarks" ? next : "sheet";
   writeView(view);
   hideTooltip();
   applyView();
@@ -243,7 +279,7 @@ function buildTooltip(picks, headingText) {
   return tip;
 }
 
-const CARD_WIDTH = 400;
+const CARD_WIDTH = 500;
 const TIP_WIDTH = 320;
 const TIP_GAP = 8;
 
@@ -251,6 +287,93 @@ let hideTimer = 0;
 
 function tipHandler() {
   return window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.card;
+}
+
+function renderBenchmarks(data) {
+  const credit = document.getElementById("benchmarks-by");
+  const list = document.getElementById("benchmarks-list");
+  if (!credit || !list) {
+    return;
+  }
+  const models = data && Array.isArray(data.models) ? data.models : [];
+  credit.replaceChildren();
+  if (models.length) {
+    credit.append("How these models compare");
+    if (data.source && data.sourceUrl) {
+      credit.append(". ");
+      const link = document.createElement("button");
+      link.type = "button";
+      link.className = "bench-link";
+      link.textContent = data.source;
+      link.addEventListener("click", () => openExternal(data.sourceUrl));
+      credit.append(link);
+    }
+  }
+  if (!models.length) {
+    const empty = document.createElement("li");
+    empty.className = "news-empty";
+    empty.textContent = "No comparisons yet.";
+    list.replaceChildren(empty);
+    return;
+  }
+  const fragment = document.createDocumentFragment();
+  models.forEach((item) => {
+    const li = document.createElement("li");
+    if (item.stale) {
+      li.className = "stale";
+    }
+    const name = document.createElement("div");
+    name.className = "job";
+    name.textContent = item.model || "";
+    li.appendChild(name);
+    const headline = item.summary || item.detail || "";
+    if (headline) {
+      const summary = document.createElement("div");
+      summary.className = "model";
+      summary.textContent = headline;
+      if (item.stale) {
+        const mark = document.createElement("span");
+        mark.className = "stale-mark";
+        mark.textContent = " STALE";
+        summary.appendChild(mark);
+      }
+      li.appendChild(summary);
+    } else if (item.stale) {
+      const mark = document.createElement("span");
+      mark.className = "stale-mark";
+      mark.textContent = " STALE";
+      name.appendChild(mark);
+    }
+    if (item.summary && item.detail) {
+      const detail = document.createElement("div");
+      detail.className = "why";
+      detail.textContent = item.detail;
+      li.appendChild(detail);
+    } else if (!headline) {
+      const detail = document.createElement("div");
+      detail.className = "why";
+      detail.textContent = item.url ? "No published price or speed." : "No published comparison yet.";
+      li.appendChild(detail);
+    }
+    if (item.url) {
+      li.classList.add("has-link");
+      li.addEventListener("click", () => openExternal(item.url));
+    }
+    fragment.appendChild(li);
+  });
+  list.replaceChildren(fragment);
+}
+
+function openExternal(url) {
+  if (newsRefreshing || !url) {
+    return;
+  }
+  const handler = tipHandler();
+  if (handler) {
+    handler.postMessage({ url });
+    return;
+  }
+  window.open(url, "_blank", "noopener");
 }
 
 function renderNews(news) {
@@ -335,12 +458,41 @@ function renderNews(news) {
       progress.className = "news-progress";
       progress.dataset.url = item.url;
       progress.hidden = true;
-      progress.setAttribute("role", "progressbar");
+      progress.tabIndex = -1;
+      progress.setAttribute("role", "slider");
       progress.setAttribute("aria-valuemin", "0");
       progress.setAttribute("aria-valuemax", "100");
       progress.setAttribute("aria-valuenow", "0");
       progress.setAttribute("aria-label", "Playback position");
       progress.appendChild(document.createElement("span"));
+      progress.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0) {
+          return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        progress.setPointerCapture(event.pointerId);
+        seekSpeech(progress, event.clientX);
+      });
+      progress.addEventListener("pointermove", (event) => {
+        if (!progress.hasPointerCapture(event.pointerId)) {
+          return;
+        }
+        event.stopPropagation();
+        seekSpeech(progress, event.clientX);
+      });
+      progress.addEventListener("click", (event) => {
+        event.stopPropagation();
+      });
+      progress.addEventListener("keydown", (event) => {
+        if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
+          return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        const step = event.key === "ArrowRight" ? 0.05 : -0.05;
+        seekSpeechTo(progress, speechProgress + step);
+      });
       actions.append(controls, progress);
       li.appendChild(actions);
       li.addEventListener("click", () => openLink(item.url));
@@ -551,6 +703,7 @@ function paintProgress() {
   document.querySelectorAll(".news-progress").forEach((bar) => {
     const active = listening && bar.dataset.url === speechURL;
     bar.hidden = !active;
+    bar.tabIndex = active ? 0 : -1;
     const percent = active ? Math.round(speechProgress * 1000) / 10 : 0;
     bar.setAttribute("aria-valuenow", String(Math.round(percent)));
     const fill = bar.firstElementChild;
@@ -558,6 +711,35 @@ function paintProgress() {
       fill.style.width = `${percent}%`;
     }
   });
+}
+
+function seekSpeech(bar, clientX) {
+  const width = bar.getBoundingClientRect().width;
+  if (width <= 0) {
+    return;
+  }
+  seekSpeechTo(bar, (clientX - bar.getBoundingClientRect().left) / width);
+}
+
+function seekSpeechTo(bar, raw) {
+  if (newsRefreshing || bar.dataset.url !== speechURL) {
+    return;
+  }
+  if (speechState !== "playing" && speechState !== "paused") {
+    return;
+  }
+  const fraction = Math.min(1, Math.max(0, raw));
+  speechProgress = fraction;
+  paintProgress();
+  const handler = tipHandler();
+  if (handler) {
+    handler.postMessage({
+      seek: {
+        url: bar.dataset.url,
+        fraction
+      }
+    });
+  }
 }
 
 function voiceLabel(name) {
@@ -667,12 +849,7 @@ function openLink(url) {
     return;
   }
   markSeen(url);
-  const handler = tipHandler();
-  if (handler) {
-    handler.postMessage({ url });
-    return;
-  }
-  window.open(url, "_blank", "noopener");
+  openExternal(url);
 }
 
 const SEEN_KEY = "llm-wall-card-seen";
@@ -732,8 +909,11 @@ function contentHeight() {
   const headerGap = parseFloat(getComputedStyle(header).marginBottom) || 0;
   let bodyHeight = 0;
   const news = document.getElementById("news");
+  const benchmarks = document.getElementById("benchmarks");
   if (news && !news.hidden) {
     bodyHeight = news.offsetHeight + (parseFloat(getComputedStyle(news).marginTop) || 0);
+  } else if (benchmarks && !benchmarks.hidden) {
+    bodyHeight = benchmarks.offsetHeight + (parseFloat(getComputedStyle(benchmarks).marginTop) || 0);
   } else {
     const rows = jobs.querySelectorAll("li");
     const count = Math.min(VISIBLE_TASKS, rows.length);
@@ -806,9 +986,13 @@ document.addEventListener("DOMContentLoaded", () => {
   view = readView();
   setToggle(view);
   const sheetButton = document.getElementById("view-sheet");
+  const benchmarksButton = document.getElementById("view-benchmarks");
   const newsButton = document.getElementById("view-news");
   if (sheetButton) {
     sheetButton.addEventListener("click", () => chooseView("sheet"));
+  }
+  if (benchmarksButton) {
+    benchmarksButton.addEventListener("click", () => chooseView("benchmarks"));
   }
   if (newsButton) {
     newsButton.addEventListener("click", () => chooseView("news"));
@@ -826,6 +1010,7 @@ document.addEventListener("DOMContentLoaded", () => {
     speed.addEventListener("change", () => chooseSpeed(speed.value));
   }
   renderCard(window.CARD);
+  renderBenchmarks(window.BENCHMARKS);
   renderNews(window.NEWS);
   applyView();
   setTipSpace(false);

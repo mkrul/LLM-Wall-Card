@@ -24,6 +24,7 @@
         <div class="view-row">
           <div class="view-toggle" role="group" aria-label="Card section">
             <button type="button" id="view-sheet" aria-pressed="true">Cheat sheet</button>
+            <button type="button" id="view-benchmarks" aria-pressed="false">Benchmarks</button>
             <button type="button" id="view-news" aria-pressed="false">News feed</button>
           </div>
           <select id="voice" aria-label="Reading voice">
@@ -33,6 +34,10 @@
         </div>
       </header>
       <ol id="jobs"></ol>
+      <section id="benchmarks" hidden>
+        <p id="benchmarks-by"></p>
+        <ol id="benchmarks-list"></ol>
+      </section>
       <section id="news" hidden>
         <p id="news-by"></p>
         <p id="news-speak-note"></p>
@@ -40,6 +45,7 @@
       </section>
     </div>
     <script src="data/card-data.js"></script>
+    <script src="data/benchmarks.js"></script>
     <script src="data/news.js"></script>
     <script src="js/app.js"></script>
   </body>

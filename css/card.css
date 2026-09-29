@@ -11,7 +11,7 @@ body {
 
 .card {
   box-sizing: border-box;
-  width: 400px;
+  width: 500px;
   height: 100%;
   overflow-y: auto;
   padding: 14px 18px 18px;
@@ -102,6 +102,7 @@ header {
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -229,8 +230,70 @@ h1 {
   margin-top: 4px;
 }
 
+#benchmarks[hidden],
 #news[hidden] {
   display: none;
+}
+
+#benchmarks-by {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: #8a8680;
+}
+
+#benchmarks-by:empty {
+  display: none;
+}
+
+.bench-link {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #c4a574;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+#benchmarks-list {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+#benchmarks-list li {
+  padding: 6px 0;
+  border-bottom: 1px solid #222;
+}
+
+#benchmarks-list li:last-child {
+  border-bottom: 0;
+}
+
+#benchmarks-list li.has-link {
+  cursor: pointer;
+}
+
+#benchmarks-list .why {
+  line-height: 1.35;
+}
+
+#benchmarks.is-refreshing #benchmarks-list,
+#benchmarks.is-refreshing .bench-link {
+  pointer-events: none;
+}
+
+#benchmarks.is-refreshing .job,
+#benchmarks.is-refreshing .model {
+  color: #b0aca4;
+}
+
+#benchmarks.is-refreshing .why,
+#benchmarks.is-refreshing .bench-link {
+  color: #686460;
 }
 
 #news-by,
@@ -290,11 +353,14 @@ h1 {
 }
 
 .news-progress {
+  box-sizing: content-box;
   height: 3px;
-  margin-top: 4px;
+  margin-top: 1px;
+  padding: 6px 0;
   background: #2a2a2a;
+  background-clip: content-box;
   border-radius: 2px;
-  overflow: hidden;
+  cursor: pointer;
 }
 
 .news-progress[hidden] {
@@ -303,9 +369,11 @@ h1 {
 
 .news-progress span {
   display: block;
-  height: 100%;
+  height: 3px;
   width: 0%;
   background: #c4a574;
+  border-radius: 2px;
+  pointer-events: none;
 }
 
 .news-extra {
