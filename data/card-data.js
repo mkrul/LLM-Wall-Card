@@ -1,5 +1,5 @@
 window.CARD = {
-  "updatedAt": "2026-09-27T07:41:25-04:00",
+  "updatedAt": "2026-09-29T06:31:38-04:00",
   "source": "openrouter",
   "jobs": [
     {
@@ -28,8 +28,8 @@ window.CARD = {
           "stale": false
         },
         {
-          "model": "Claude Sonnet 5",
-          "modelId": "anthropic/claude-sonnet-5",
+          "model": "Claude Sonnet 5.5",
+          "modelId": "anthropic/claude-sonnet-5.5",
           "why": "Quick lists and first-pass options",
           "tasks": [
             "A fast list of ideas",
@@ -104,8 +104,8 @@ window.CARD = {
           "stale": false
         },
         {
-          "model": "Claude Sonnet 5",
-          "modelId": "anthropic/claude-sonnet-5",
+          "model": "Claude Sonnet 5.5",
+          "modelId": "anthropic/claude-sonnet-5.5",
           "why": "Smaller structural changes you want back fast",
           "tasks": [
             "Splitting one part of the code into smaller parts",
@@ -119,8 +119,8 @@ window.CARD = {
     {
       "id": "everyday-coding",
       "job": "Everyday coding",
-      "model": "Claude Sonnet 5",
-      "modelId": "anthropic/claude-sonnet-5",
+      "model": "Claude Sonnet 5.5",
+      "modelId": "anthropic/claude-sonnet-5.5",
       "why": "Day-to-day edits, small features, and fast reviews",
       "tasks": [
         "Small features and bugfixes",

@@ -290,11 +290,6 @@ function renderNews(news) {
     source.className = "news-source";
     source.textContent = item.source || "";
     copy.appendChild(source);
-    const status = document.createElement("div");
-    status.className = "news-status";
-    status.dataset.url = item.url || "";
-    status.hidden = true;
-    copy.appendChild(status);
     li.appendChild(copy);
     if (item.url) {
       const actions = document.createElement("div");
@@ -522,11 +517,6 @@ function paintSpeech() {
       button.removeAttribute("title");
       button.setAttribute("aria-label", "Listen to this article");
     }
-  });
-  document.querySelectorAll(".news-status").forEach((status) => {
-    const loading = status.dataset.url === speechURL && speechState === "loading";
-    status.hidden = !loading;
-    status.textContent = loading ? "Preparing the audio." : "";
   });
   document.querySelectorAll(".news-pause").forEach((button) => {
     const playing = button.dataset.url === speechURL && speechState === "playing";
