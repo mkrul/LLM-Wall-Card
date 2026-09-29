@@ -106,10 +106,14 @@ function refreshCurrent() {
   handler.postMessage({ refresh: view === "news" ? "news" : "sheet" });
 }
 
+let newsRefreshing = false;
+
 window.setRefreshState = function (state, message) {
   const button = document.getElementById("refresh");
   const updatedAt = document.getElementById("updated-at");
   const busy = state === "busy";
+  newsRefreshing = busy && view === "news";
+  paintNewsRefresh();
   if (button) {
     button.disabled = busy;
     button.classList.toggle("is-busy", busy);
@@ -131,6 +135,16 @@ window.setRefreshState = function (state, message) {
   }
   showStamp();
 };
+
+function paintNewsRefresh() {
+  const news = document.getElementById("news");
+  if (news) {
+    news.classList.toggle("is-refreshing", newsRefreshing);
+  }
+  document.querySelectorAll("#news-list button").forEach((button) => {
+    button.disabled = newsRefreshing;
+  });
+}
 
 function renderCard(card) {
   const jobsEl = document.getElementById("jobs");
@@ -257,6 +271,9 @@ function renderNews(news) {
   const fragment = document.createDocumentFragment();
   items.forEach((item) => {
     const li = document.createElement("li");
+    if (item.url) {
+      li.dataset.url = item.url;
+    }
     const copy = document.createElement("div");
     copy.className = "news-copy";
     const title = document.createElement("div");
@@ -336,6 +353,7 @@ function renderNews(news) {
     fragment.appendChild(li);
   });
   list.replaceChildren(fragment);
+  paintSeen();
   paintSpeech();
 }
 
@@ -416,6 +434,9 @@ function cancelIcon() {
 }
 
 function toggleSpeech(item) {
+  if (newsRefreshing) {
+    return;
+  }
   const handler = tipHandler();
   if (!handler) {
     window.setSpeechState(item.url, "idle", "Listening runs in the LLM Wall Card app.");
@@ -435,6 +456,9 @@ function toggleSpeech(item) {
 }
 
 function pauseSpeech(item) {
+  if (newsRefreshing) {
+    return;
+  }
   if (speechURL !== item.url || (speechState !== "playing" && speechState !== "paused")) {
     return;
   }
@@ -447,6 +471,9 @@ function pauseSpeech(item) {
 }
 
 function cancelSpeech(item) {
+  if (newsRefreshing) {
+    return;
+  }
   if (speechURL !== item.url || speechState !== "loading") {
     return;
   }
@@ -469,6 +496,9 @@ window.setSpeechState = function (url, state, message) {
     note.textContent = message || "";
   }
   paintSpeech();
+  if (state === "playing") {
+    markSeen(url);
+  }
 };
 
 function paintSpeech() {
@@ -643,6 +673,10 @@ window.setVoices = function (payload) {
 };
 
 function openLink(url) {
+  if (newsRefreshing) {
+    return;
+  }
+  markSeen(url);
   const handler = tipHandler();
   if (handler) {
     handler.postMessage({ url });
@@ -650,6 +684,49 @@ function openLink(url) {
   }
   window.open(url, "_blank", "noopener");
 }
+
+const SEEN_KEY = "llm-wall-card-seen";
+const seenStories = new Set();
+
+function loadSeen() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(SEEN_KEY) || "[]");
+    if (!Array.isArray(parsed)) {
+      return;
+    }
+    parsed.forEach((url) => {
+      if (typeof url === "string" && url) {
+        seenStories.add(url);
+      }
+    });
+  } catch (error) {
+    return;
+  }
+}
+
+function markSeen(url) {
+  if (!url || seenStories.has(url)) {
+    return;
+  }
+  seenStories.add(url);
+  const rows = [...seenStories].slice(-300);
+  seenStories.clear();
+  rows.forEach((row) => seenStories.add(row));
+  try {
+    localStorage.setItem(SEEN_KEY, JSON.stringify(rows));
+  } catch (error) {
+    seenStories.add(url);
+  }
+  paintSeen();
+}
+
+function paintSeen() {
+  document.querySelectorAll("#news-list li").forEach((row) => {
+    row.classList.toggle("is-seen", !!(row.dataset.url && seenStories.has(row.dataset.url)));
+  });
+}
+
+loadSeen();
 
 const VISIBLE_TASKS = 5;
 

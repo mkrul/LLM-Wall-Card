@@ -435,6 +435,25 @@ h1 {
   color: #c4a574;
 }
 
+#news.is-refreshing #news-list {
+  pointer-events: none;
+}
+
+#news.is-refreshing .news-title,
+#news-list li.is-seen .news-title {
+  color: #c5c1b9;
+}
+
+#news.is-refreshing .news-detail,
+#news-list li.is-seen .news-detail {
+  color: #7c7872;
+}
+
+#news.is-refreshing .news-source,
+#news-list li.is-seen .news-source {
+  color: #9d8660;
+}
+
 li.stale {
   opacity: 0.45;
 }
