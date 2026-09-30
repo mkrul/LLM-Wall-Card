@@ -1,8 +1,15 @@
 window.NEWS = {
-  "updatedAt": "2026-09-29T13:24:33-04:00",
+  "updatedAt": "2026-09-30T04:28:34-04:00",
   "model": "",
   "modelId": "",
   "items": [
+    {
+      "title": "GPT 6.1 Sol: Near-Astra intelligence for a fifth of the price",
+      "detail": "My comment on GPT 6.1 Sol: Near-Astra intelligence for a fifth of the price \u2014 Hacker News.",
+      "source": "Simon Willison",
+      "url": "https://simonwillison.net/2026/Sep/29/hn-49898129/",
+      "published": "2026-09-29T14:27:48-04:00"
+    },
     {
       "title": "OpenAI launches GPT-6.1 Sol, says it nearly matches GPT-6 Astra and costs less",
       "detail": "OpenAI says GPT-6.1 Sol delivers significant improvements over GPT-6 Sol across complex professional tasks.",
@@ -18,18 +25,11 @@ window.NEWS = {
       "published": "2026-09-29T07:48:27-04:00"
     },
     {
-      "title": "Florida seeks a ban on ChatGPT acting like a person",
-      "detail": "Florida Attorney General James Uthmeier is calling for a judge to block OpenAI from \"giving ChatGPT false human attributes,\" a few months after Florida sued.",
-      "source": "The Verge",
-      "url": "https://www.theverge.com/ai-artificial-intelligence/1001527/chatgpt-florida-ban-first-person-human-attributes-kids",
-      "published": "2026-09-28T13:00:23-04:00"
-    },
-    {
-      "title": "OpenAI DevDay 2026 live blog",
-      "detail": "I'm at OpenAI DevDay today, in Fort Mason, San Francisco.",
-      "source": "Simon Willison",
-      "url": "https://simonwillison.net/2026/Sep/29/openai-devday-2026-live-blog/",
-      "published": "2026-09-29T11:55:13-04:00"
+      "title": "Introducing GPT-6.1 Sol",
+      "detail": "Meet GPT-6.1 Sol: near-Astra intelligence for coding, computer use, and professional work at one-fifth of Astra\u2019s standard API input and output token prices.",
+      "source": "OpenAI",
+      "url": "https://openai.com/index/introducing-gpt-6-1-sol",
+      "published": "2026-09-29T06:00:00-04:00"
     },
     {
       "title": "Language Models for Text Classification: From Bag-of-Words to Jev",
