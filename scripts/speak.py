@@ -23,12 +23,24 @@ TEXT_LIMIT = 40000
 CHUNK_LIMIT = 9000
 FETCH_TIMEOUT = 20
 SPEECH_TIMEOUT = 120
-SKIP_TAGS = {"script", "style", "nav", "footer", "header", "form", "noscript", "svg", "button", "iframe"}
+SKIP_TAGS = {"script", "style", "nav", "footer", "header", "form", "noscript", "svg", "button", "iframe", "aside", "dialog"}
 VOID_TAGS = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"}
 COLLECT_TAGS = {"p", "li", "h2", "h3", "h4", "blockquote", "figcaption"}
 OPENAI_KEY_PATH = Path.home() / ".config" / "llm-cheat-sheet" / "openai.key"
 CHAT_URL = "https://api.openai.com/v1/chat/completions"
-CLEAN_ID = "listen-clean-3"
+CLEAN_ID = "listen-clean-4"
+CHROME_START = re.compile(
+    r"(?i)^(image credits?:|photo(?:graph)?(?: credits?)?:|credits?:|topics?:|"
+    r"most popular|view bio|register here|book (?:exhibit table )?now|"
+    r"loading the next article|error loading the next article|"
+    r"(?:senior|staff) writer\b)"
+)
+CHROME_LINE = re.compile(
+    r"(?i)when you purchase through links|we may earn a (?:small )?commission|"
+    r"last day to demo|disrupt ticket|book exhibit|get \d+% off a second|"
+    r"this doesn.?t affect our editorial"
+)
+CREDIT_AGENCY = re.compile(r"(?i)\b(?:getty images|nurphoto|associated press|reuters)\b")
 
 
 def load_key():
@@ -136,6 +148,42 @@ class ArticleParser(HTMLParser):
             self.buf.append(data)
 
 
+def is_page_chrome(text):
+    text = plain(text)
+    if not text:
+        return True
+    if CHROME_START.match(text) or CHROME_LINE.search(text):
+        return True
+    if len(text) <= 130 and CREDIT_AGENCY.search(text) and not re.search(r"[.!?].{20,}", text):
+        return True
+    return False
+
+
+def has_sentence_end(text):
+    return bool(re.search(r"[?!]|[.](?:\s|$)", text))
+
+
+def is_story_body(text):
+    return len(text) >= 80 and (
+        has_sentence_end(text) or text.startswith(("“", '"', "‘", "'"))
+    )
+
+
+def is_related_teaser(text):
+    if is_story_body(text):
+        return False
+    return len(text) <= 160 and not has_sentence_end(text)
+
+
+def story_paragraphs(texts):
+    rows = [plain(text) for text in texts if plain(text) and not is_page_chrome(text)]
+    while rows and is_related_teaser(rows[0]):
+        rows.pop(0)
+    while rows and is_related_teaser(rows[-1]):
+        rows.pop()
+    return rows
+
+
 def article_text(page):
     parser = ArticleParser()
     try:
@@ -144,10 +192,8 @@ def article_text(page):
     except Exception:
         return ""
     inside = [text for is_inside, text in parser.rows if is_inside]
-    inside_text = "\n\n".join(inside)
-    if len(inside_text) >= 200:
-        return inside_text
-    return "\n\n".join(text for _, text in parser.rows)
+    pool = inside if len("\n\n".join(inside)) >= 200 else [text for _, text in parser.rows]
+    return "\n\n".join(story_paragraphs(pool))
 
 
 def fetch_page(url):
@@ -194,10 +240,10 @@ def polish_for_listening(title, detail, body):
                 "content": (
                     "You prepare one news article so it can be read aloud. "
                     "The page text includes the article and leftover page material. "
-                    "Keep every paragraph that belongs to the article, from the beginning of the story through the end. "
-                    "Delete advertisements, subscription offers, related stories, share prompts, author biographies, and sentences about the website itself. "
+                    "Keep every paragraph that belongs to the reported story, from the beginning of the story through the end. "
+                    "Delete advertisements, event promotions, subscription offers, related stories, share prompts, author biographies, photo credits, image captions that only name a photographer or agency, and sentences about the website itself. "
                     "Keep the article's own wording. Do not add facts, names, or numbers. Do not summarize. Do not shorten the article. Do not repeat the title. "
-                    "If you are unsure whether a sentence belongs to the article, keep it. "
+                    "If a paragraph is an ad, a credit, or a list of other stories, delete it. "
                     "Return plain paragraphs only."
                 ),
             },

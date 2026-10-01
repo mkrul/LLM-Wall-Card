@@ -1,28 +1,14 @@
 window.NEWS = {
-  "updatedAt": "2026-09-30T04:28:34-04:00",
+  "updatedAt": "2026-10-01T06:56:46-04:00",
   "model": "",
   "modelId": "",
   "items": [
     {
-      "title": "GPT 6.1 Sol: Near-Astra intelligence for a fifth of the price",
-      "detail": "My comment on GPT 6.1 Sol: Near-Astra intelligence for a fifth of the price \u2014 Hacker News.",
-      "source": "Simon Willison",
-      "url": "https://simonwillison.net/2026/Sep/29/hn-49898129/",
-      "published": "2026-09-29T14:27:48-04:00"
-    },
-    {
-      "title": "OpenAI launches GPT-6.1 Sol, says it nearly matches GPT-6 Astra and costs less",
-      "detail": "OpenAI says GPT-6.1 Sol delivers significant improvements over GPT-6 Sol across complex professional tasks.",
+      "title": "Google releases Gemini 4 Argon, called its most powerful model yet",
+      "detail": "Google has released its latest Gemini model, marketing it as a workhorse for coding and cybersecurity work.",
       "source": "TechCrunch",
-      "url": "https://techcrunch.com/2026/09/29/openai-launches-gpt-6-1-sol-says-it-nearly-matches-gpt-6-astra-and-costs-less/",
-      "published": "2026-09-29T13:15:00-04:00"
-    },
-    {
-      "title": "Anthropic warns of \u2018catastrophic\u2019 AI risks in its own IPO filing",
-      "detail": "As Anthropic gears up for its greatly anticipated public debut.",
-      "source": "The Verge",
-      "url": "https://www.theverge.com/ai-artificial-intelligence/1001838/anthropic-ipo-prospectus-ai-safety-threat",
-      "published": "2026-09-29T07:48:27-04:00"
+      "url": "https://techcrunch.com/2026/09/30/google-releases-gemini-4-argon-called-its-most-powerful-model-yet/",
+      "published": "2026-09-30T19:43:07-04:00"
     },
     {
       "title": "Introducing GPT-6.1 Sol",
@@ -30,6 +16,20 @@ window.NEWS = {
       "source": "OpenAI",
       "url": "https://openai.com/index/introducing-gpt-6-1-sol",
       "published": "2026-09-29T06:00:00-04:00"
+    },
+    {
+      "title": "DoorDash launches an AI agent you can text to order food",
+      "detail": "By launching an AI agent for food ordering, DoorDash is looking to gain an edge over rivals Uber Eats and Grubhub.",
+      "source": "TechCrunch",
+      "url": "https://techcrunch.com/2026/09/30/doordash-launches-an-ai-agent-you-can-text-to-order-food/",
+      "published": "2026-09-30T12:00:24-04:00"
+    },
+    {
+      "title": "Restate lands $20M as the need for durable infrastructure increases with AI agents",
+      "detail": "Instead of building its durable execution engine on top of an external database, the company developed its own storage, replication, and redundancy layers.",
+      "source": "TechCrunch",
+      "url": "https://techcrunch.com/2026/09/30/restate-lands-20m-as-the-need-for-durable-infrastructure-increases-with-ai-agents/",
+      "published": "2026-09-30T10:27:11-04:00"
     },
     {
       "title": "Language Models for Text Classification: From Bag-of-Words to Jev",

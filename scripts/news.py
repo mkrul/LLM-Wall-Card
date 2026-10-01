@@ -13,6 +13,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import refresh
+import speak
 
 ROOT = Path(__file__).resolve().parent.parent
 NEWS_PATH = ROOT / "data" / "news.js"
@@ -25,11 +26,10 @@ WINDOW_HOURS = 72
 BACKUP_HOURS = 24 * 7
 
 FEEDS = (
-    ("The Verge", "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml"),
     ("TechCrunch", "https://techcrunch.com/category/artificial-intelligence/feed/"),
     ("OpenAI", "https://openai.com/news/rss.xml"),
     ("Google", "https://blog.google/technology/ai/rss/"),
-    ("Simon Willison", "https://simonwillison.net/atom/everything/"),
+    ("Simon Willison", "https://simonwillison.net/atom/entries/"),
     ("MIT Technology Review", "https://www.technologyreview.com/feed/"),
     ("Ars Technica", "https://feeds.arstechnica.com/arstechnica/technology-lab"),
     ("Hugging Face", "https://huggingface.co/blog/feed.xml"),
@@ -92,6 +92,16 @@ SKIP_WORDS = (
     "roundup",
     "how to",
 )
+THIN_TITLE_PREFIXES = (
+    "comment:",
+    "quoting ",
+    "quote:",
+    "note on ",
+    "link:",
+    "tool:",
+    "release:",
+)
+MIN_LISTEN_WORDS = 160
 SUMMARY_JOB = {
     "match": "google/gemini-3",
     "require": "flash",
@@ -229,12 +239,62 @@ def is_customer_story(item):
     return True
 
 
+def word_count(text):
+    return len(re.findall(r"[A-Za-z0-9']+", text or ""))
+
+
+def is_thin_item(item):
+    title = item["title"].lower().strip()
+    url = item["url"].split("?", 1)[0].lower()
+    summary = clean_summary(item).lower()
+    if item["source"] == "The Verge" or "theverge.com" in url:
+        return True
+    if "/podcast/" in url or re.search(r"/hn-\d+", url):
+        return True
+    if title.startswith(THIN_TITLE_PREFIXES):
+        return True
+    if re.search(r"\bmy comment on\b", summary):
+        return True
+    if re.search(r"[—–-]\s*hacker news\.?$", summary):
+        return True
+    return False
+
+
+def page_is_listen_worthy(item):
+    try:
+        page = speak.fetch_page(item["url"])
+    except (OSError, urllib.error.URLError, ValueError, TimeoutError):
+        return True
+    if not page.strip():
+        return True
+    body = speak.article_text(page)
+    if not body.strip():
+        return True
+    return word_count(body) >= MIN_LISTEN_WORDS
+
+
+def keep_listen_worthy(pairs, extra=None, limit=12):
+    kept = []
+    seen = set()
+    for source in (pairs, extra or []):
+        for _score, item in source:
+            if item["url"] in seen:
+                continue
+            seen.add(item["url"])
+            if not page_is_listen_worthy(item):
+                continue
+            kept.append(item)
+            if len(kept) >= limit:
+                return kept
+    return kept
+
+
 def score_item(item, now):
     title = item["title"].lower()
     blob = f"{title} {item['summary'].lower()}"
     if any(word in blob for word in SKIP_WORDS):
         return None
-    if "/podcast/" in item["url"] or title.startswith("quoting ") or title.startswith("note on "):
+    if is_thin_item(item):
         return None
     if is_customer_story(item):
         return None
@@ -293,7 +353,7 @@ def choose_reports(items, now):
     fresh = [pair for pair in ranked if (now - pair[1]["published"]).total_seconds() <= WINDOW_HOURS * 3600]
     pool = fresh if len(fresh) >= MAX_ITEMS else ranked
     pool = keep_one_open_model(pool, ranked, now)
-    return [item for _, item in pool[:12]]
+    return keep_listen_worthy(pool, ranked, 12)
 
 
 def keep_one_open_model(pool, ranked, now):
@@ -353,7 +413,8 @@ def model_details(model_id, reports, key):
                     "You choose the daily AI news for a developer cheat sheet. "
                     "Use only the reports given to you. Do not add events, numbers, or names that are not in that report. "
                     "Pick at most 5 reports. Prefer model releases, outages, security incidents, lawsuits, and policy changes. "
-                    "Skip ads, customer stories, and tips. "
+                    "Skip ads, customer stories, tips, short comments, quotes, and link posts. "
+                    "Pick only full articles a person could listen to. "
                     "For each pick, write one plain sentence about what happened. "
                     "Do not use specialist shorthand. "
                     'Return JSON only: {"items":[{"url":"<exact url from the report>","detail":"<one sentence>"}]}'

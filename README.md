@@ -50,7 +50,7 @@ The prices, speeds, and comparisons come from their published numbers. The card 
 
 ## AI news
 
-`scripts/news.py` reads public reports from The Verge, TechCrunch, OpenAI, Google, Simon Willison, MIT Technology Review, and Ars Technica. For open models it also reads Hugging Face, Mistral, Qwen, Ollama, Interconnects, Together, and Ahead of AI. It keeps items about models and AI from the last few days, and holds one slot for an open-model report from the past week when the rest of the list would otherwise leave that out.
+`scripts/news.py` reads public reports from TechCrunch, OpenAI, Google, Simon Willison, MIT Technology Review, and Ars Technica. For open models it also reads Hugging Face, Mistral, Qwen, Ollama, Interconnects, Together, and Ahead of AI. It keeps items about models and AI from the last few days, and holds one slot for an open-model report from the past week when the rest of the list would otherwise leave that out. Comments, quotes, link posts, and other pages that are too short to read aloud are left out. Simon Willison’s feed is his blog entries, not the stream of asides.
 
 The sentences are written by the model on the **Fast and low cost** row (Gemini Flash, unless a newer match replaces it). That row is for a pile of short summaries, which is what a daily news pass is. It does not use the models kept for hard coding or long documents.
 
@@ -64,7 +64,7 @@ On the News feed, a voice menu and a speed field sit to the right of the Cheat s
 
 Put the ElevenLabs key on one line in `~/.config/llm-cheat-sheet/elevenlabs.key`, or in the `ELEVENLABS_API_KEY` environment variable. Do not paste the key into the chat. Speaking needs the Text to Speech permission. The voice menu also needs Voices read on that same key. If the menu cannot load, speaking still works with the saved voice. If no voice has been saved, the card uses a standard reading voice.
 
-Before it speaks, the card takes the article text from the page. The OpenAI model on the **Many short tasks** row then drops advertisements, subscription lines, related stories, and other page material, and keeps the article’s own wording. It does not add facts or shorten the story. That step needs an OpenAI key in `~/.config/llm-cheat-sheet/openai.key`, or in the `OPENAI_API_KEY` environment variable. Without that key, it reads the page text it gathered. A very long article is cut off after about 40,000 characters. This listening step is separate from the daily news sentences, which still use OpenRouter.
+Before it speaks, the card takes the article text from the page and drops ads, photo credits, and related-story lists. The OpenAI model on the **Many short tasks** row then drops any leftover page material and keeps the article’s own wording. It does not add facts or shorten the story. That step needs an OpenAI key in `~/.config/llm-cheat-sheet/openai.key`, or in the `OPENAI_API_KEY` environment variable. Without that key, it reads the cleaned page text. A very long article is cut off after about 40,000 characters. This listening step is separate from the daily news sentences, which still use OpenRouter.
 
 ## Change the jobs
 
